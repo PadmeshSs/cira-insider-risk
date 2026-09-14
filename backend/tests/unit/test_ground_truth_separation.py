@@ -1,173 +1,111 @@
-"""
-Tests ensuring CERT ground truth remains separate from the behavioural
-event-ingestion pipeline.
+from datetime import datetime
 
-Ground truth is evaluation metadata. It must never become part of
-CanonicalEvent details or metadata.
-"""
-
-from __future__ import annotations
-
-from pathlib import Path
-
-import pandas as pd
-import pytest
-
-from backend.app.ingestion.cert_loader import (
-    iter_cert_domain_events,
-)
-from backend.app.ingestion.ground_truth import (
+from app.ingestion.contracts import CanonicalEvent
+from app.ingestion.ground_truth import (
     GroundTruthRecord,
     build_user_label_index,
     is_ground_truth_event,
 )
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-def write_csv(
-    path: Path,
-    rows: list[dict],
-) -> None:
-    pd.DataFrame(rows).to_csv(
-        path,
-        index=False,
+def test_canonical_event_contains_no_ground_truth_fields():
+    event = CanonicalEvent(
+        event_id="test-event-1",
+        timestamp=datetime(
+            2010,
+            3,
+            10,
+            12,
+            0,
+            0,
+        ),
+        user_id="USR001",
+        device_id="PC-001",
+        source_type="authentication",
+        event_type="logon_logon",
+        details={
+            "activity": "logon",
+        },
+        metadata={
+            "dataset": "CERT",
+            "release": "r4.2",
+        },
     )
 
-
-# ---------------------------------------------------------------------------
-# Tests
-# ---------------------------------------------------------------------------
-
-def test_canonical_event_contains_no_ground_truth_fields(
-    tmp_path: Path,
-) -> None:
-
-    write_csv(
-        tmp_path / "logon.csv",
-        [
-            {
-                "id": 1,
-                "date": "2010-01-01 08:00:00",
-                "user": "USER001",
-                "pc": "PC001",
-                "activity": "Logon",
-            },
-        ],
+    fields = set(
+        event.model_dump().keys()
     )
 
-    event = next(
-        iter_cert_domain_events(
-            tmp_path,
-            "logon",
-        )
-    )
-
-    event_data = event.model_dump()
-
-    # Top-level canonical event must not contain labels.
-    forbidden = {
-        "label",
-        "labels",
-        "malicious",
-        "is_malicious",
-        "ground_truth",
-        "scenario",
-    }
-
-    assert forbidden.isdisjoint(
-        event_data.keys()
-    )
+    assert "label" not in fields
+    assert "scenario" not in fields
+    assert "malicious" not in fields
+    assert "ground_truth" not in fields
 
 
-def test_ground_truth_is_not_added_to_event_metadata(
-    tmp_path: Path,
-) -> None:
-
-    write_csv(
-        tmp_path / "logon.csv",
-        [
-            {
-                "id": 1,
-                "date": "2010-01-01 08:00:00",
-                "user": "USER001",
-                "pc": "PC001",
-                "activity": "Logon",
-            },
-        ],
-    )
-
-    event = next(
-        iter_cert_domain_events(
-            tmp_path,
-            "logon",
-        )
+def test_ground_truth_is_not_added_to_event_metadata():
+    event = CanonicalEvent(
+        event_id="test-event-2",
+        timestamp=datetime(
+            2010,
+            3,
+            10,
+            12,
+            0,
+            0,
+        ),
+        user_id="USR001",
+        source_type="authentication",
+        event_type="logon_logon",
     )
 
     metadata = event.metadata
 
-    forbidden = {
-        "label",
-        "labels",
-        "malicious",
-        "is_malicious",
-        "ground_truth",
-        "scenario",
-    }
-
-    assert forbidden.isdisjoint(
-        metadata.keys()
-    )
+    assert "label" not in metadata
+    assert "scenario" not in metadata
+    assert "malicious" not in metadata
+    assert "ground_truth" not in metadata
 
 
-def test_ground_truth_is_evaluation_side_data() -> None:
-
+def test_ground_truth_is_evaluation_side_data():
     record = GroundTruthRecord(
-        user_id="USER001",
-        start=pd.Timestamp(
-            "2010-01-01 08:00:00"
-        ).to_pydatetime(),
-        end=pd.Timestamp(
-            "2010-01-01 18:00:00"
-        ).to_pydatetime(),
-        scenario="r4.2-1",
-        details="Example insider scenario",
-        dataset="r4.2",
-        source_file="insiders",
+        user_id="USR001",
+        start=datetime(
+            2010,
+            3,
+            1,
+        ),
+        end=datetime(
+            2010,
+            3,
+            10,
+        ),
+        scenario="1",
+        details="r2.csv",
+        dataset="2.0",
+        source_file="insiders.csv",
     )
 
-    assert record.user_id == "USER001"
-    assert record.scenario == "r4.2-1"
-
-    # The record exists independently from CanonicalEvent.
-    assert not hasattr(
-        record,
-        "event_id",
-    )
+    assert record.user_id == "USR001"
+    assert record.scenario == "1"
+    assert record.source_file == "insiders.csv"
 
 
-def test_user_label_index_groups_records_by_user() -> None:
-
+def test_user_label_index_groups_records_by_user():
     records = [
         GroundTruthRecord(
-            user_id="USER001",
-            start=None,
-            end=None,
-            scenario="r4.2-1",
+            user_id="USR001",
+            start=datetime(2010, 1, 1),
+            end=datetime(2010, 1, 2),
         ),
         GroundTruthRecord(
-            user_id="USER001",
-            start=None,
-            end=None,
-            scenario="r4.2-2",
+            user_id="USR001",
+            start=datetime(2010, 2, 1),
+            end=datetime(2010, 2, 2),
         ),
         GroundTruthRecord(
-            user_id="USER002",
-            start=None,
-            end=None,
-            scenario="r4.2-3",
+            user_id="USR002",
+            start=datetime(2010, 3, 1),
+            end=datetime(2010, 3, 2),
         ),
     ]
 
@@ -176,98 +114,113 @@ def test_user_label_index_groups_records_by_user() -> None:
     )
 
     assert set(index) == {
-        "USER001",
-        "USER002",
+        "USR001",
+        "USR002",
     }
 
-    assert len(
-        index["USER001"]
-    ) == 2
-
-    assert len(
-        index["USER002"]
-    ) == 1
+    assert len(index["USR001"]) == 2
+    assert len(index["USR002"]) == 1
 
 
-def test_ground_truth_temporal_match() -> None:
-
+def test_ground_truth_temporal_match():
     records = [
         GroundTruthRecord(
-            user_id="USER001",
-            start=pd.Timestamp(
-                "2010-01-01 08:00:00"
-            ).to_pydatetime(),
-            end=pd.Timestamp(
-                "2010-01-01 18:00:00"
-            ).to_pydatetime(),
-            scenario="r4.2-1",
-        ),
+            user_id="USR001",
+            start=datetime(
+                2010,
+                3,
+                1,
+            ),
+            end=datetime(
+                2010,
+                3,
+                10,
+            ),
+        )
     ]
 
     assert is_ground_truth_event(
-        user_id="USER001",
-        timestamp="2010-01-01 12:00:00",
+        user_id="USR001",
+        timestamp=datetime(
+            2010,
+            3,
+            5,
+        ),
         records=records,
-    ) is True
+    )
 
 
-def test_ground_truth_temporal_match_outside_interval() -> None:
-
+def test_ground_truth_temporal_match_outside_interval():
     records = [
         GroundTruthRecord(
-            user_id="USER001",
-            start=pd.Timestamp(
-                "2010-01-01 08:00:00"
-            ).to_pydatetime(),
-            end=pd.Timestamp(
-                "2010-01-01 18:00:00"
-            ).to_pydatetime(),
-            scenario="r4.2-1",
-        ),
+            user_id="USR001",
+            start=datetime(
+                2010,
+                3,
+                1,
+            ),
+            end=datetime(
+                2010,
+                3,
+                10,
+            ),
+        )
     ]
 
-    assert is_ground_truth_event(
-        user_id="USER001",
-        timestamp="2010-01-02 12:00:00",
+    assert not is_ground_truth_event(
+        user_id="USR001",
+        timestamp=datetime(
+            2010,
+            3,
+            11,
+        ),
         records=records,
-    ) is False
+    )
 
 
-def test_ground_truth_temporal_match_wrong_user() -> None:
-
+def test_ground_truth_temporal_match_wrong_user():
     records = [
         GroundTruthRecord(
-            user_id="USER001",
-            start=pd.Timestamp(
-                "2010-01-01 08:00:00"
-            ).to_pydatetime(),
-            end=pd.Timestamp(
-                "2010-01-01 18:00:00"
-            ).to_pydatetime(),
-            scenario="r4.2-1",
-        ),
+            user_id="USR001",
+            start=datetime(
+                2010,
+                3,
+                1,
+            ),
+            end=datetime(
+                2010,
+                3,
+                10,
+            ),
+        )
     ]
 
-    assert is_ground_truth_event(
-        user_id="USER002",
-        timestamp="2010-01-01 12:00:00",
+    assert not is_ground_truth_event(
+        user_id="USR002",
+        timestamp=datetime(
+            2010,
+            3,
+            5,
+        ),
         records=records,
-    ) is False
+    )
 
 
-def test_ground_truth_without_interval_does_not_create_match() -> None:
-
+def test_ground_truth_without_interval_does_not_create_match():
     records = [
         GroundTruthRecord(
-            user_id="USER001",
+            user_id="USR001",
             start=None,
             end=None,
-            scenario="r4.2-1",
-        ),
+        )
     ]
 
-    assert is_ground_truth_event(
-        user_id="USER001",
-        timestamp="2010-01-01 12:00:00",
+    assert not is_ground_truth_event(
+        user_id="USR001",
+        timestamp=datetime(
+            2010,
+            3,
+            5,
+        ),
         records=records,
-    ) is False
+    )

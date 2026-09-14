@@ -9,11 +9,16 @@ Responsibilities:
 5. Reject obvious ground-truth leakage.
 6. Support sampling for smoke tests.
 7. Support CERT LDAP snapshots located under:
+
        cert_r4.2/
            LDAP/
                2009-12.csv
                2010-01.csv
                ...
+
+Cross-platform provenance:
+    metadata["source_file"] always uses POSIX-style "/" separators.
+    This keeps lineage values identical on Windows, Linux, and macOS.
 """
 
 from __future__ import annotations
@@ -27,10 +32,6 @@ import pandas as pd
 from .contracts import CanonicalEvent
 
 
-# ---------------------------------------------------------------------------
-# CERT r4.2 behavioral domains
-# ---------------------------------------------------------------------------
-
 CERT_DOMAINS: dict[str, str] = {
     "logon": "logon.csv",
     "device": "device.csv",
@@ -39,11 +40,6 @@ CERT_DOMAINS: dict[str, str] = {
     "http": "http.csv",
     "psychometric": "psychometric.csv",
 }
-
-
-# ---------------------------------------------------------------------------
-# Ground-truth leakage protection
-# ---------------------------------------------------------------------------
 
 FORBIDDEN_LABEL_COLUMNS = {
     "label",
@@ -55,52 +51,18 @@ FORBIDDEN_LABEL_COLUMNS = {
     "scenario",
 }
 
+ID_COLUMNS = ("id", "event_id")
+TIMESTAMP_COLUMNS = ("date", "timestamp", "datetime", "time")
+USER_COLUMNS = ("user", "user_id")
+DEVICE_COLUMNS = ("pc", "device", "device_id")
+ACTIVITY_COLUMNS = ("activity", "action")
 
-# ---------------------------------------------------------------------------
-# Common CERT column aliases
-# ---------------------------------------------------------------------------
-
-ID_COLUMNS = (
-    "id",
-    "event_id",
-)
-
-TIMESTAMP_COLUMNS = (
-    "date",
-    "timestamp",
-    "datetime",
-    "time",
-)
-
-USER_COLUMNS = (
-    "user",
-    "user_id",
-)
-
-DEVICE_COLUMNS = (
-    "pc",
-    "device",
-    "device_id",
-)
-
-ACTIVITY_COLUMNS = (
-    "activity",
-    "action",
-)
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 def _normalise_column_name(value: Any) -> str:
-    """Normalize a column name for comparison."""
     return str(value).strip().lower()
 
 
 def _is_missing(value: Any) -> bool:
-    """Safely determine whether a value is missing."""
-
     if value is None:
         return True
 
@@ -117,8 +79,6 @@ def _is_missing(value: Any) -> bool:
 
 
 def _clean_value(value: Any) -> Any:
-    """Convert pandas values into normal Python values."""
-
     if _is_missing(value):
         return None
 
@@ -132,8 +92,6 @@ def _clean_value(value: Any) -> Any:
 
 
 def _row_to_dict(row: pd.Series) -> dict[str, Any]:
-    """Convert a pandas Series into a clean Python dictionary."""
-
     return {
         str(key): _clean_value(value)
         for key, value in row.to_dict().items()
@@ -144,8 +102,6 @@ def _find_column(
     columns: list[str],
     candidates: tuple[str, ...],
 ) -> str | None:
-    """Find a source column using known aliases."""
-
     normalized = {
         _normalise_column_name(column): column
         for column in columns
@@ -163,8 +119,6 @@ def _find_column(
 
 
 def _parse_timestamp(value: Any):
-    """Parse a timestamp without crashing the entire ingestion."""
-
     if _is_missing(value):
         return None
 
@@ -182,12 +136,6 @@ def _parse_timestamp(value: Any):
 def _assert_no_label_columns(
     columns: list[str],
 ) -> None:
-    """
-    Fail closed if obvious ground-truth columns are present.
-
-    Ground truth must remain outside the feature-input pipeline.
-    """
-
     normalized = {
         _normalise_column_name(column)
         for column in columns
@@ -209,13 +157,6 @@ def _stable_event_id(
     row_number: int,
     row: dict[str, Any],
 ) -> str:
-    """
-    Generate a deterministic event ID.
-
-    CERT normally provides an `id` field. If unavailable,
-    a deterministic hash is used.
-    """
-
     id_column = _find_column(
         list(row.keys()),
         ID_COLUMNS,
@@ -232,9 +173,7 @@ def _stable_event_id(
 
         if source_id:
             return (
-                f"cert-r4.2:"
-                f"{domain}:"
-                f"{source_id}"
+                f"cert-r4.2:{domain}:{source_id}"
             )
 
     canonical = repr(
@@ -249,10 +188,8 @@ def _stable_event_id(
     ).hexdigest()[:16]
 
     return (
-        f"cert-r4.2:"
-        f"{domain}:"
-        f"{row_number}:"
-        f"{digest}"
+        f"cert-r4.2:{domain}:"
+        f"{row_number}:{digest}"
     )
 
 
@@ -260,13 +197,6 @@ def _read_csv_chunks(
     path: Path,
     chunksize: int,
 ) -> Iterator[pd.DataFrame]:
-    """
-    Stream a CSV file in chunks.
-
-    Large CERT files such as HTTP and email are therefore
-    not loaded completely into RAM.
-    """
-
     if not path.exists():
         raise FileNotFoundError(
             f"CERT file not found: {path}"
@@ -279,10 +209,6 @@ def _read_csv_chunks(
     )
 
 
-# ---------------------------------------------------------------------------
-# Canonical event construction
-# ---------------------------------------------------------------------------
-
 def _build_event(
     *,
     domain: str,
@@ -290,8 +216,6 @@ def _build_event(
     row_number: int,
     row: dict[str, Any],
 ) -> CanonicalEvent:
-    """Convert one raw CERT record into a CanonicalEvent."""
-
     columns = list(row.keys())
 
     id_column = _find_column(
@@ -319,10 +243,6 @@ def _build_event(
         ACTIVITY_COLUMNS,
     )
 
-    # ---------------------------------------------------------------
-    # Timestamp
-    # ---------------------------------------------------------------
-
     timestamp = (
         _parse_timestamp(
             row.get(timestamp_column)
@@ -330,10 +250,6 @@ def _build_event(
         if timestamp_column
         else None
     )
-
-    # ---------------------------------------------------------------
-    # User
-    # ---------------------------------------------------------------
 
     user_id = (
         str(row[user_column]).strip()
@@ -346,10 +262,6 @@ def _build_event(
         else None
     )
 
-    # ---------------------------------------------------------------
-    # Device
-    # ---------------------------------------------------------------
-
     device_id = (
         str(row[device_column]).strip()
         if (
@@ -360,10 +272,6 @@ def _build_event(
         )
         else None
     )
-
-    # ---------------------------------------------------------------
-    # Activity
-    # ---------------------------------------------------------------
 
     activity = (
         str(
@@ -378,10 +286,6 @@ def _build_event(
         else None
     )
 
-    # ---------------------------------------------------------------
-    # Source type
-    # ---------------------------------------------------------------
-
     source_type_map = {
         "logon": "authentication",
         "device": "device",
@@ -393,10 +297,6 @@ def _build_event(
     }
 
     source_type = source_type_map[domain]
-
-    # ---------------------------------------------------------------
-    # Event type
-    # ---------------------------------------------------------------
 
     if domain == "logon":
         event_type = (
@@ -438,10 +338,6 @@ def _build_event(
     else:
         event_type = f"{domain}_event"
 
-    # ---------------------------------------------------------------
-    # Required source traceability metadata
-    # ---------------------------------------------------------------
-
     metadata: dict[str, Any] = {
         "dataset": "CERT",
         "release": "r4.2",
@@ -450,7 +346,6 @@ def _build_event(
         "source_row_number": row_number,
     }
 
-    # Add original CERT record ID when available.
     if (
         id_column
         and not _is_missing(
@@ -460,10 +355,6 @@ def _build_event(
         metadata["source_record_id"] = str(
             row[id_column]
         )
-
-    # ---------------------------------------------------------------
-    # Canonical event
-    # ---------------------------------------------------------------
 
     return CanonicalEvent(
         event_id=_stable_event_id(
@@ -481,20 +372,12 @@ def _build_event(
     )
 
 
-# ---------------------------------------------------------------------------
-# CERT behavioral-domain loader
-# ---------------------------------------------------------------------------
-
 def iter_cert_domain_events(
     root: str | Path,
     domain: str,
     *,
     chunksize: int = 10_000,
 ) -> Iterator[CanonicalEvent]:
-    """
-    Stream events from one CERT behavioral domain.
-    """
-
     root = Path(root)
 
     if domain not in CERT_DOMAINS:
@@ -511,14 +394,11 @@ def iter_cert_domain_events(
         path,
         chunksize,
     ):
-
-        # Check every chunk for label leakage.
         _assert_no_label_columns(
             list(chunk.columns)
         )
 
         for _, pandas_row in chunk.iterrows():
-
             row_number += 1
 
             row = _row_to_dict(
@@ -533,34 +413,13 @@ def iter_cert_domain_events(
             )
 
 
-# ---------------------------------------------------------------------------
-# CERT LDAP snapshot loader
-# ---------------------------------------------------------------------------
-
 def iter_ldap_events(
     root: str | Path,
     *,
     chunksize: int = 10_000,
 ) -> Iterator[CanonicalEvent]:
-    """
-    Stream all CERT LDAP snapshot records.
-
-    Expected structure:
-
-        cert_r4.2/
-            LDAP/
-                2009-12.csv
-                2010-01.csv
-                ...
-                2011-05.csv
-
-    Every CSV snapshot is processed.
-    """
-
     root = Path(root)
 
-    # IMPORTANT:
-    # LDAP is a directory inside the CERT release root.
     ldap_root = root / "LDAP"
 
     if not ldap_root.exists():
@@ -570,10 +429,10 @@ def iter_ldap_events(
 
     if not ldap_root.is_dir():
         raise NotADirectoryError(
-            f"Expected LDAP directory but found: {ldap_root}"
+            f"Expected LDAP directory but found: "
+            f"{ldap_root}"
         )
 
-    # Discover every LDAP snapshot.
     ldap_files = sorted(
         ldap_root.glob("*.csv")
     )
@@ -587,27 +446,22 @@ def iter_ldap_events(
     row_number = 0
 
     for path in ldap_files:
-
-        # Example:
-        # LDAP/2009-12.csv
-        # LDAP/2010-01.csv
-        # etc.
-        source_file = str(
-            path.relative_to(root)
-        )
+        # IMPORTANT:
+        # Always use POSIX separators so provenance
+        # is identical across operating systems.
+        source_file = path.relative_to(
+            root
+        ).as_posix()
 
         for chunk in _read_csv_chunks(
             path,
             chunksize,
         ):
-
-            # Check LDAP headers for leakage.
             _assert_no_label_columns(
                 list(chunk.columns)
             )
 
             for _, pandas_row in chunk.iterrows():
-
                 row_number += 1
 
                 row = _row_to_dict(
@@ -622,10 +476,6 @@ def iter_ldap_events(
                 )
 
 
-# ---------------------------------------------------------------------------
-# Complete CERT iterator
-# ---------------------------------------------------------------------------
-
 def iter_cert_events(
     root: str | Path,
     *,
@@ -633,15 +483,6 @@ def iter_cert_events(
     chunksize: int = 10_000,
     sample_rows: int | None = None,
 ) -> Iterator[CanonicalEvent]:
-    """
-    Stream CERT events.
-
-    If domains is omitted, all behavioral CERT domains plus LDAP
-    are processed.
-
-    sample_rows limits total output and is intended for smoke tests.
-    """
-
     selected_domains = (
         domains
         if domains is not None
@@ -654,16 +495,12 @@ def iter_cert_events(
     emitted = 0
 
     for domain in selected_domains:
-
         if domain == "ldap":
-
             iterator = iter_ldap_events(
                 root,
                 chunksize=chunksize,
             )
-
         else:
-
             iterator = iter_cert_domain_events(
                 root,
                 domain,
@@ -671,7 +508,6 @@ def iter_cert_events(
             )
 
         for event in iterator:
-
             yield event
 
             emitted += 1
@@ -683,41 +519,27 @@ def iter_cert_events(
                 return
 
 
-# ---------------------------------------------------------------------------
-# Sample loader
-# ---------------------------------------------------------------------------
-
 def load_cert_sample(
     root: str | Path,
     *,
     rows_per_domain: int = 10,
     chunksize: int = 10_000,
 ) -> dict[str, list[CanonicalEvent]]:
-    """
-    Load a small sample from every CERT domain.
-
-    Used by the Chapter 3 smoke test.
-    """
-
     result: dict[
         str,
         list[CanonicalEvent]
     ] = {}
 
-    # ---------------------------------------------------------------
-    # Behavioral domains
-    # ---------------------------------------------------------------
-
     for domain in CERT_DOMAINS:
-
-        events: list[CanonicalEvent] = []
+        events: list[
+            CanonicalEvent
+        ] = []
 
         for event in iter_cert_domain_events(
             root,
             domain,
             chunksize=chunksize,
         ):
-
             events.append(event)
 
             if len(events) >= rows_per_domain:
@@ -725,17 +547,14 @@ def load_cert_sample(
 
         result[domain] = events
 
-    # ---------------------------------------------------------------
-    # LDAP
-    # ---------------------------------------------------------------
-
-    ldap_events: list[CanonicalEvent] = []
+    ldap_events: list[
+        CanonicalEvent
+    ] = []
 
     for event in iter_ldap_events(
         root,
         chunksize=chunksize,
     ):
-
         ldap_events.append(event)
 
         if len(ldap_events) >= rows_per_domain:
@@ -746,19 +565,9 @@ def load_cert_sample(
     return result
 
 
-# ---------------------------------------------------------------------------
-# Header inspection
-# ---------------------------------------------------------------------------
-
 def inspect_csv_headers(
     root: str | Path,
 ) -> dict[str, list[str]]:
-    """
-    Read only CSV headers.
-
-    This does not load the actual datasets.
-    """
-
     root = Path(root)
 
     headers: dict[
@@ -766,12 +575,7 @@ def inspect_csv_headers(
         list[str]
     ] = {}
 
-    # ---------------------------------------------------------------
-    # Behavioral CSVs
-    # ---------------------------------------------------------------
-
     for domain, filename in CERT_DOMAINS.items():
-
         path = root / filename
 
         if not path.exists():
@@ -793,10 +597,6 @@ def inspect_csv_headers(
             for column in header.columns
         ]
 
-    # ---------------------------------------------------------------
-    # LDAP CSVs
-    # ---------------------------------------------------------------
-
     ldap_root = root / "LDAP"
 
     if not ldap_root.exists():
@@ -814,12 +614,10 @@ def inspect_csv_headers(
             f"{ldap_root}"
         )
 
-    # Store each LDAP snapshot's header separately.
     for path in ldap_files:
-
-        source_name = str(
-            path.relative_to(root)
-        )
+        source_name = path.relative_to(
+            root
+        ).as_posix()
 
         header = pd.read_csv(
             path,

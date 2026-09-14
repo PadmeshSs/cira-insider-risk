@@ -1,13 +1,11 @@
 """
-CERT r4.2 dataset inventory.
+CERT r4.2 raw-data inventory.
 
-Counts logical CSV records for every CERT r4.2 domain without loading
-the entire dataset into memory.
+Reports row counts for the six CERT source CSVs and
+the LDAP snapshot CSVs.
 
-This script is an acceptance/verification utility for Chapter 3.
-
-Usage:
-    python scripts/cert_inventory.py --root D:\\CIRA_dataset\\datasets\\raw\\cert_r4.2
+LDAP rows are organizational/context snapshots and
+are reported separately from the six primary event files.
 """
 
 from __future__ import annotations
@@ -30,10 +28,9 @@ CERT_FILES = {
 
 def count_csv_rows(
     path: Path,
+    *,
     chunksize: int = 100_000,
 ) -> int:
-    """Count logical CSV records without loading the entire file."""
-
     total = 0
 
     for chunk in pd.read_csv(
@@ -51,7 +48,6 @@ def inventory_domain(
     domain: str,
     filename: str,
 ) -> int:
-
     path = root / filename
 
     if not path.exists():
@@ -59,14 +55,12 @@ def inventory_domain(
             f"Missing CERT file: {path}"
         )
 
-    print(
-        f"Counting {domain:<15} {filename} ..."
-    )
-
     count = count_csv_rows(path)
 
     print(
-        f"  {domain:<15} {count:,} rows"
+        f"{domain:<15} "
+        f"{count:>12,} rows  "
+        f"{filename}"
     )
 
     return count
@@ -74,13 +68,13 @@ def inventory_domain(
 
 def inventory_ldap(
     root: Path,
-) -> tuple[int, int]:
-
+) -> int:
     ldap_root = root / "LDAP"
 
     if not ldap_root.exists():
         raise FileNotFoundError(
-            f"LDAP directory not found: {ldap_root}"
+            f"LDAP directory not found: "
+            f"{ldap_root}"
         )
 
     files = sorted(
@@ -89,40 +83,36 @@ def inventory_ldap(
 
     if not files:
         raise FileNotFoundError(
-            f"No LDAP CSV files found under: {ldap_root}"
+            f"No LDAP CSV files found under: "
+            f"{ldap_root}"
         )
 
-    total_rows = 0
+    total = 0
 
     print()
     print("LDAP snapshots")
-    print("-" * 50)
 
     for path in files:
-
         count = count_csv_rows(path)
-
-        total_rows += count
+        total += count
 
         print(
-            f"  {path.name:<20} {count:,} rows"
+            f"{path.name:<15} "
+            f"{count:>12,} rows"
         )
 
-    print("-" * 50)
-
     print(
-        f"  {'LDAP total':<20} "
-        f"{total_rows:,} rows"
+        f"{'LDAP total':<15} "
+        f"{total:>12,} rows"
     )
 
-    return len(files), total_rows
+    return total
 
 
-def main() -> None:
-
+def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Inventory CERT r4.2 raw dataset."
+            "Inventory CERT r4.2 raw files."
         )
     )
 
@@ -130,81 +120,55 @@ def main() -> None:
         "--root",
         required=True,
         type=Path,
-        help="Path to CERT r4.2 root directory.",
+        help="CERT r4.2 root directory.",
     )
 
     args = parser.parse_args()
 
-    root = args.root
+    root = args.root.resolve()
 
     if not root.exists():
-        raise SystemExit(
-            f"ERROR: CERT root does not exist: {root}"
+        parser.error(
+            f"CERT root does not exist: {root}"
         )
 
-    print("=" * 60)
-    print("CERT r4.2 DATASET INVENTORY")
-    print("=" * 60)
-    print(f"Root: {root}")
+    print(
+        f"CERT root: {root}"
+    )
     print()
 
-    counts: dict[str, int] = {}
+    print("Primary source files")
+
+    primary_total = 0
 
     for domain, filename in CERT_FILES.items():
-
-        counts[domain] = inventory_domain(
+        primary_total += inventory_domain(
             root,
             domain,
             filename,
         )
 
-    ldap_snapshots, ldap_rows = inventory_ldap(
-        root
+    print()
+    print(
+        f"{'Six-source total':<15} "
+        f"{primary_total:>12,} rows"
     )
+
+    ldap_total = inventory_ldap(root)
 
     print()
-    print("=" * 60)
-    print("SUMMARY")
-    print("=" * 60)
-
-    behavioural_total = sum(
-        counts.values()
-    )
-
-    for domain, count in counts.items():
-
-        print(
-            f"{domain:<20} {count:>15,}"
-        )
-
     print(
-        f"{'LDAP snapshots':<20} "
-        f"{ldap_snapshots:>15}"
-    )
-
-    print(
-        f"{'LDAP rows':<20} "
-        f"{ldap_rows:>15,}"
-    )
-
-    print("-" * 60)
-
-    print(
-        f"{'Behavioural total':<20} "
-        f"{behavioural_total:>15,}"
-    )
-
-    print(
-        f"{'All raw records*':<20} "
-        f"{behavioural_total + ldap_rows:>15,}"
+        f"{'All counted rows':<15} "
+        f"{primary_total + ldap_total:>12,}"
     )
 
     print()
     print(
-        "* LDAP rows are organizational snapshots and are not "
-        "behavioural events."
+        "Inventory complete."
     )
+
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

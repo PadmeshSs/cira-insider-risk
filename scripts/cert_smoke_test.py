@@ -1,12 +1,12 @@
 """
 CERT r4.2 ingestion smoke test.
 
-Loads a small sample from every CERT domain and verifies that each
-record conforms to the CanonicalEvent contract.
+This is a CLI validation script, not a pytest test module.
 
 Usage:
-    python scripts/cert_smoke_test.py ^
-        --root D:\\CIRA_dataset\\datasets\\raw\\cert_r4.2 ^
+
+    python scripts/cert_smoke_test.py \
+        --root D:\\CIRA_dataset\\datasets\\raw\\cert_r4.2 \
         --rows 10
 """
 
@@ -17,7 +17,13 @@ import sys
 from pathlib import Path
 
 
-# Allow the script to work when executed from repository root.
+# Allow execution from the repository root:
+#
+#     python scripts/cert_smoke_test.py
+#
+# while importing the application from:
+#
+#     backend/app/
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 if str(REPO_ROOT) not in sys.path:
@@ -26,165 +32,149 @@ if str(REPO_ROOT) not in sys.path:
         str(REPO_ROOT),
     )
 
-
 from backend.app.ingestion.cert_loader import (  # noqa: E402
     CERT_DOMAINS,
+    FORBIDDEN_LABEL_COLUMNS,
     iter_cert_domain_events,
     iter_ldap_events,
 )
 
 
-def test_domain(
+def run_domain_smoke(
     root: Path,
     domain: str,
     rows: int,
 ) -> int:
-
-    print(
-        f"\nTesting {domain}..."
-    )
-
     count = 0
 
-    iterator = iter_cert_domain_events(
+    for event in iter_cert_domain_events(
         root,
         domain,
-    )
+        chunksize=max(rows, 1),
+    ):
+        assert event.event_id
+        assert event.source_type
+        assert event.event_type
 
-    for event in iterator:
+        assert (
+            event.metadata["dataset"]
+            == "CERT"
+        )
+
+        assert (
+            event.metadata["release"]
+            == "r4.2"
+        )
+
+        assert (
+            event.metadata["domain"]
+            == domain
+        )
+
+        assert event.metadata[
+            "source_file"
+        ]
+
+        assert event.metadata[
+            "source_row_number"
+        ] == count + 1
+
+        event_fields = set(
+            event.model_dump().keys()
+        )
+
+        forbidden = (
+            event_fields
+            & FORBIDDEN_LABEL_COLUMNS
+        )
+
+        assert not forbidden
 
         count += 1
-
-        # Pydantic validation has already occurred when the
-        # CanonicalEvent object was constructed.
-
-        assert event.event_id, (
-            f"{domain}: missing event_id"
-        )
-
-        assert event.source_type, (
-            f"{domain}: missing source_type"
-        )
-
-        assert event.event_type, (
-            f"{domain}: missing event_type"
-        )
-
-        assert event.metadata["dataset"] == "CERT"
-
-        assert event.metadata["release"] == "r4.2"
-
-        assert event.metadata["domain"] == domain
-
-        assert "source_file" in event.metadata
-
-        assert "source_row_number" in event.metadata
-
-        # Ground truth must never appear in the canonical event.
-
-        forbidden = {
-            "label",
-            "labels",
-            "malicious",
-            "is_malicious",
-            "ground_truth",
-            "scenario",
-        }
-
-        event_data = event.model_dump()
-
-        leaked = forbidden.intersection(
-            event_data.keys()
-        )
-
-        assert not leaked, (
-            f"{domain}: ground-truth leakage detected: "
-            f"{sorted(leaked)}"
-        )
 
         if count >= rows:
             break
 
     assert count == rows, (
-        f"{domain}: expected {rows} rows, "
-        f"received {count}"
+        f"{domain}: expected {rows} "
+        f"events but received {count}"
     )
 
     print(
-        f"  PASS: {count} canonical events"
+        f"PASS {domain}: "
+        f"{count} canonical events"
     )
 
     return count
 
 
-def test_ldap(
+def run_ldap_smoke(
     root: Path,
     rows: int,
 ) -> int:
-
-    print(
-        "\nTesting LDAP..."
-    )
-
     count = 0
 
-    iterator = iter_ldap_events(
+    for event in iter_ldap_events(
         root,
-    )
-
-    for event in iterator:
-
-        count += 1
-
-        assert event.event_id
-
+        chunksize=max(rows, 1),
+    ):
         assert event.source_type == "ldap"
+        assert event.event_type == (
+            "ldap_snapshot"
+        )
 
-        assert event.event_type == "ldap_snapshot"
+        assert event.user_id
 
-        assert event.metadata["dataset"] == "CERT"
+        assert event.metadata[
+            "dataset"
+        ] == "CERT"
 
-        assert event.metadata["release"] == "r4.2"
+        assert event.metadata[
+            "release"
+        ] == "r4.2"
 
-        assert event.metadata["domain"] == "ldap"
+        assert event.metadata[
+            "domain"
+        ] == "ldap"
 
-        assert "source_file" in event.metadata
+        assert event.metadata[
+            "source_file"
+        ].startswith("LDAP/")
 
-        assert "source_row_number" in event.metadata
+        assert "\\" not in event.metadata[
+            "source_file"
+        ]
 
-        # LDAP snapshots legitimately have no timestamp in the
-        # current canonical representation.
+        assert event.metadata[
+            "source_row_number"
+        ] == count + 1
+
         assert event.timestamp is None
 
-        # The actual CERT LDAP schema contains user_id.
-        assert event.user_id is not None
-
-        # Organizational attributes must remain available.
-        assert isinstance(
-            event.details,
-            dict,
-        )
+        count += 1
 
         if count >= rows:
             break
 
     assert count == rows, (
-        f"LDAP: expected {rows} rows, "
-        f"received {count}"
+        "LDAP: expected "
+        f"{rows} events but received "
+        f"{count}"
     )
 
     print(
-        f"  PASS: {count} canonical LDAP events"
+        f"PASS ldap: "
+        f"{count} canonical events"
     )
 
     return count
 
 
-def main() -> None:
-
+def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Smoke-test CERT r4.2 canonical ingestion."
+            "Smoke-test CERT r4.2 "
+            "canonical ingestion."
         )
     )
 
@@ -200,58 +190,49 @@ def main() -> None:
         type=int,
         default=10,
         help=(
-            "Number of records to test per domain "
-            "(default: 10)."
+            "Number of events to validate "
+            "per domain."
         ),
     )
 
     args = parser.parse_args()
 
-    if args.rows <= 0:
-        raise SystemExit(
-            "--rows must be greater than zero."
+    if args.rows < 1:
+        parser.error(
+            "--rows must be at least 1"
         )
 
-    root = args.root
+    root = args.root.resolve()
 
     if not root.exists():
-        raise SystemExit(
-            f"ERROR: CERT root does not exist: {root}"
+        parser.error(
+            f"CERT root does not exist: {root}"
         )
-
-    print("=" * 60)
-    print("CERT r4.2 INGESTION SMOKE TEST")
-    print("=" * 60)
 
     total = 0
 
     for domain in CERT_DOMAINS:
-
-        total += test_domain(
+        total += run_domain_smoke(
             root,
             domain,
             args.rows,
         )
 
-    total += test_ldap(
+    total += run_ldap_smoke(
         root,
         args.rows,
     )
 
     print()
-    print("=" * 60)
-    print("RESULT")
-    print("=" * 60)
-
     print(
-        f"PASS: {total} canonical events validated."
+        "CERT ingestion smoke test: PASS"
+    )
+    print(
+        f"Validated {total} canonical events."
     )
 
-    print(
-        "All CERT behavioural domains and LDAP passed "
-        "the smoke test."
-    )
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
