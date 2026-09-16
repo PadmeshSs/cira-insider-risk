@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pytest
@@ -5,7 +6,7 @@ import pytest
 from app.ingestion.cert_loader import load_cert_sample
 from app.preprocessing.normalize import normalize_events
 
-CERT_ROOT = Path("datasets/raw/cert_r4.2")
+CERT_ROOT = Path(os.getenv("CERT_RAW_DIR", "datasets/raw/cert_r4.2"))
 
 
 def test_cert_sample_normalizes_without_accepted_schema_failures():

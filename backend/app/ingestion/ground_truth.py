@@ -15,6 +15,7 @@ Ground-truth labels must never enter the feature-input/event stream.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -139,26 +140,43 @@ def _find_column(
     return None
 
 
+CERT_TIMESTAMP_FORMAT = "%m/%d/%Y %H:%M:%S"
+
+
 def _parse_datetime(value: Any) -> Any:
     """
-    Parse a ground-truth date/time where possible.
+    Parse CERT r4.2 ground-truth timestamps into timezone-aware UTC values.
 
-    Returns None for missing/unparseable values rather than silently
-    inventing a timestamp.
+    CERT supplies timestamps without a timezone. UTC is the canonical source
+    timezone used by Chapter 4 unless a caller explicitly performs another
+    conversion.
     """
 
     if _is_missing(value):
         return None
 
-    parsed = pd.to_datetime(
-        value,
-        errors="coerce",
-    )
+    if isinstance(value, datetime):
+        parsed = value
+    else:
+        parsed = pd.to_datetime(
+            value,
+            format=CERT_TIMESTAMP_FORMAT,
+            errors="coerce",
+        )
 
     if pd.isna(parsed):
         return None
 
-    return parsed.to_pydatetime()
+    # pandas Timestamp has .to_pydatetime(); native datetime does not.
+    if isinstance(parsed, pd.Timestamp):
+        parsed = parsed.to_pydatetime()
+
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    else:
+        parsed = parsed.astimezone(timezone.utc)
+
+    return parsed
 
 
 # ---------------------------------------------------------------------------
@@ -291,6 +309,12 @@ def _parse_dataframe(
         DATASET_COLUMNS,
     )
 
+    if dataset_column is None:
+        raise ValueError(
+            "CERT ground-truth file must contain a dataset/release column "
+            "so r4.2 can be scoped explicitly."
+        )
+
     records: list[GroundTruthRecord] = []
 
     for _, pandas_row in dataframe.iterrows():
@@ -305,9 +329,17 @@ def _parse_dataframe(
         if _is_missing(user_value):
             continue
 
-        user_id = str(user_value).strip()
+        user_id = str(user_value).strip().casefold()
 
         if not user_id:
+            continue
+
+        dataset_raw = row.get(dataset_column)
+        if _is_missing(dataset_raw):
+            continue
+
+        dataset_value = str(dataset_raw).strip()
+        if dataset_value != "4.2":
             continue
 
         start_value = (
@@ -340,14 +372,8 @@ def _parse_dataframe(
             else None
         )
 
-        dataset_value = (
-            str(row.get(dataset_column)).strip()
-            if (
-                dataset_column
-                and not _is_missing(row.get(dataset_column))
-            )
-            else None
-        )
+        # dataset_value was validated and scoped above.
+        dataset_value = "4.2"
 
         records.append(
             GroundTruthRecord(
@@ -441,7 +467,7 @@ def build_user_label_index(
 
     for record in records:
         index.setdefault(
-            record.user_id,
+            record.user_id.strip().casefold(),
             [],
         ).append(record)
 
@@ -471,15 +497,24 @@ def is_ground_truth_event(
     if timestamp is None:
         return False
 
+    canonical_user_id = str(user_id).strip().casefold()
+
     for record in records:
 
-        if record.user_id != user_id:
+        if record.user_id.strip().casefold() != canonical_user_id:
             continue
 
         if record.start is None or record.end is None:
             continue
 
-        if record.start <= timestamp <= record.end:
+        record_start = _parse_datetime(record.start)
+        record_end = _parse_datetime(record.end)
+
+        if record_start is None or record_end is None:
+            continue
+
+        # All comparison values are canonical UTC-aware datetimes.
+        if record_start <= timestamp <= record_end:
             return True
 
     return False

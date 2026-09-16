@@ -24,6 +24,7 @@ Cross-platform provenance:
 from __future__ import annotations
 
 import hashlib
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -118,12 +119,19 @@ def _find_column(
     return None
 
 
+CERT_TIMESTAMP_FORMAT = "%m/%d/%Y %H:%M:%S"
+
+
 def _parse_timestamp(value: Any):
     if _is_missing(value):
         return None
 
+    if isinstance(value, datetime):
+        return value
+
     parsed = pd.to_datetime(
         value,
+        format=CERT_TIMESTAMP_FORMAT,
         errors="coerce",
     )
 
@@ -215,6 +223,7 @@ def _build_event(
     source_file: str,
     row_number: int,
     row: dict[str, Any],
+    snapshot_month: str | None = None,
 ) -> CanonicalEvent:
     columns = list(row.keys())
 
@@ -356,6 +365,9 @@ def _build_event(
             row[id_column]
         )
 
+    if snapshot_month is not None:
+        metadata["snapshot_month"] = snapshot_month
+
     return CanonicalEvent(
         event_id=_stable_event_id(
             domain=domain,
@@ -453,6 +465,17 @@ def iter_ldap_events(
             root
         ).as_posix()
 
+        try:
+            snapshot_month = datetime.strptime(
+                path.stem,
+                "%Y-%m",
+            ).strftime("%Y-%m")
+        except ValueError as exc:
+            raise ValueError(
+                "LDAP snapshot filename must be YYYY-MM.csv; "
+                f"got {path.name!r}"
+            ) from exc
+
         for chunk in _read_csv_chunks(
             path,
             chunksize,
@@ -473,6 +496,7 @@ def iter_ldap_events(
                     source_file=source_file,
                     row_number=row_number,
                     row=row,
+                    snapshot_month=snapshot_month,
                 )
 
 

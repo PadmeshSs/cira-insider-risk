@@ -114,12 +114,12 @@ def test_user_label_index_groups_records_by_user():
     )
 
     assert set(index) == {
-        "USR001",
-        "USR002",
+        "usr001",
+        "usr002",
     }
 
-    assert len(index["USR001"]) == 2
-    assert len(index["USR002"]) == 1
+    assert len(index["usr001"]) == 2
+    assert len(index["usr002"]) == 1
 
 
 def test_ground_truth_temporal_match():

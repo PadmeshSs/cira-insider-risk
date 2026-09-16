@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     environment: str = "development"
     log_level: str = "INFO"
 
+    cert_raw_dir: str = "datasets/raw/cert_r4.2"
+    cert_ground_truth_dir: str = "datasets/ground_truth/cert_r4.2"
+    cert_source_timezone: str = "UTC"
+    cert_target_timezone: str = "UTC"
+
     model_config = SettingsConfigDict(
         env_file="../.env",
         env_file_encoding="utf-8",

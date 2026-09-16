@@ -221,18 +221,23 @@ def normalize_timestamp(
 
 
 def _parse_datetime_string(value: str) -> datetime:
-    # CERT uses ISO-like "YYYY-MM-DD HH:MM:SS" values; support common ISO
-    # variants without accepting ambiguous locale-specific date formats.
-    candidate = value.replace("Z", "+00:00")
+    # CERT r4.2 raw data is MM/DD/YYYY HH:MM:SS. Also retain support for
+    # already-normalized ISO-8601 values so downstream/replay inputs remain
+    # compatible with the canonical contract.
     try:
-        return datetime.fromisoformat(candidate)
+        return datetime.strptime(value, "%m/%d/%Y %H:%M:%S")
     except ValueError:
-        # Accept a trailing UTC marker with whitespace trimmed only.
-        if candidate.endswith("+0000"):
-            return datetime.fromisoformat(candidate[:-5] + "+00:00")
-        raise ValueError(
-            f"Unparseable timestamp {value!r}; expected ISO-8601-like format"
-        )
+        candidate = value.replace("Z", "+00:00")
+        try:
+            return datetime.fromisoformat(candidate)
+        except ValueError:
+            if candidate.endswith("+0000"):
+                return datetime.fromisoformat(candidate[:-5] + "+00:00")
+            raise ValueError(
+                "Unparseable timestamp "
+                f"{value!r}; expected CERT MM/DD/YYYY HH:MM:SS "
+                "or ISO-8601"
+            )
 
 
 def normalize_source_type(value: str) -> str:
