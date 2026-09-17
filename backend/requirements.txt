@@ -19,3 +19,4 @@ httpx
 testcontainers
 factory_boy
 ruff
+pyarrow>=25.0
