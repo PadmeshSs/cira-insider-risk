@@ -100,7 +100,12 @@ def extension(series: pd.Series) -> pd.Series:
 
 
 def memory_rss_mb() -> float:
-    """Best-effort current process RSS in MiB."""
+    """Peak resident memory of this process so far, in MiB (HCEA R8).
+
+    Windows: PeakWorkingSetSize. Linux/macOS: ru_maxrss. Both are process
+    high-water marks, so a value logged at the end of a run is the true peak,
+    not a snapshot taken after large frames were freed.
+    """
     if os.name == "nt":
         import ctypes
         from ctypes import wintypes
@@ -139,7 +144,7 @@ def memory_rss_mb() -> float:
         )
 
         if ok:
-            return counters.WorkingSetSize / (1024 ** 2)
+            return counters.PeakWorkingSetSize / (1024 ** 2)
 
         return float("nan")
 

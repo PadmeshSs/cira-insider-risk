@@ -134,3 +134,16 @@ def test_feature_package_never_imports_ground_truth():
                 assert "ground_truth" not in (node.module or ""), path.name
             if isinstance(node, ast.Import):
                 assert all("ground_truth" not in a.name for a in node.names), path.name
+
+
+def test_memory_rss_is_a_high_water_mark():
+    import numpy as np
+    from app.feature_engineering.common import memory_rss_mb
+
+    before = memory_rss_mb()
+    big = np.ones(40 * 1024 * 1024 // 8)   # ~40 MiB
+    during = memory_rss_mb()
+    del big
+    after = memory_rss_mb()
+    assert during >= before
+    assert after >= during - 1             # peak must not drop after freeing

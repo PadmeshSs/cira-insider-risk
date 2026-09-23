@@ -20,6 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
+from app.feature_engineering.common import append_experiment_runlog  # noqa: E402
 from app.ingestion.ground_truth import build_insider_label_tables  # noqa: E402
 
 EXPECTED_EVENTS = 7_323   # Bible Chapter 3 / HCEA §3.2 (released r4.2 ground truth)
@@ -38,6 +39,7 @@ def main() -> None:
         summary["malicious_events"] == EXPECTED_EVENTS and summary["insider_users"] == EXPECTED_USERS
     )
     print(json.dumps(summary, indent=2))
+    append_experiment_runlog({"stage": "build_labels", **{k: v for k, v in summary.items() if k != "output_dir"}})
     if not summary["matches_published_counts"]:
         print("WARNING: counts differ from the published r4.2 figures; investigate before Chapter 6.", file=sys.stderr)
 

@@ -57,3 +57,26 @@ rolling 7-day activity and active-day counts, `auth_active_span_hours`,
    HCEA §5.5 targets: dev under ~2 minutes, full-pipeline peak RSS under 12 GB.
 4. Kill the http stage mid-run once at mid and confirm it resumes (HCEA §5.5).
 5. Save `experiments/dataset_inventory.txt` (HCEA §3.2) and commit it.
+
+## Follow-up review (commit 9f69389, real-data runs)
+
+Fixes applied exactly as tested; 80/80 tests pass on the committed code.
+`experiments/runlog.jsonl` shows:
+
+| Profile | Users | Events in | Rejected | User-days out | Features | Wall-clock |
+|---|---|---|---|---|---|---|
+| dev | 49 | 254,850 | 0 | 4,258 | 112 | 267 s |
+| mid | 250 | 7,180,298 | 0 | 106,914 | 112 | 277 s (2 s cached re-run) |
+
+Defect 16 found in this review: on Windows `memory_rss_mb()` returned
+`WorkingSetSize` (current memory), and the summary is logged at the end of a
+run, so the logged 331 MB / 550 MB are end-of-run snapshots, not peaks.
+Fixed to `PeakWorkingSetSize`; the HCEA §5.5 peak-RSS item must be re-measured.
+
+Notes:
+- dev selects 50 users but only 49 have activity in Jun-Aug 2010; one user
+  contributes no rows. Acceptable for a dev profile; worth knowing.
+- dev takes ~4.5 min, above the ~2 min HCEA target, because Stage 0 must scan
+  every raw CSV once regardless of profile size. Cached re-runs are seconds.
+- The 2 s mid re-run proves stage caching, not crash-resume. The kill-and-resume
+  check (HCEA §5.5) is still to be demonstrated on real data.
