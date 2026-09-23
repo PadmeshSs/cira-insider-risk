@@ -173,3 +173,7 @@ reports/generated/
 !experiments/results/.gitkeep
 !experiments/outputs/.gitkeep
 !reports/generated/.gitkeep
+# ------------------------------------------------------------
+# Local backups written by scripts/apply_ch5_fixes.py
+# ------------------------------------------------------------
+.ch5_fix_backup/

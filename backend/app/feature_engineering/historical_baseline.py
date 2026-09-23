@@ -1,3 +1,10 @@
+"""Per-user historical baseline deviation (Bible Ch5 step 8, HCEA §5.4).
+
+Method (recorded per column in feature_schema.json):
+  trailing rolling z-score over the previous ``window`` calendar days of the
+  dense user-day spine; ``shift(1)`` excludes the current day; null until
+  ``min_periods`` prior days exist and null when the prior std is zero.
+"""
 from __future__ import annotations
 import numpy as np
 import pandas as pd
@@ -8,6 +15,7 @@ DEFAULT_BASELINES = [
     "usb_connect_count", "file_event_count", "emails_sent",
     "external_email_ratio", "email_total_size", "http_request_count",
     "http_distinct_hosts", "http_off_hours_count",
+    "usb_event_count", "total_event_count",
 ]
 
 def add_baselines(df: pd.DataFrame, columns: list[str] | None = None, window: int = BASELINE_WINDOW, min_periods: int = BASELINE_MIN_PERIODS) -> tuple[pd.DataFrame, dict[str, dict]]:

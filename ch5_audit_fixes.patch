@@ -1,0 +1,3162 @@
+From 8d1331beabcb16bed65c404a54178fc4d06c06a2 Mon Sep 17 00:00:00 2001
+From: audit <audit@local>
+Date: Wed, 23 Sep 2026 19:16:23 +0000
+Subject: [PATCH] Chapter 5 audit fixes: exact distinct counts, null policy,
+ same-day peers, host classes, resumable Stage 0, label tables, tests
+
+---
+ .env.example                                  |  14 +
+ .gitignore                                    |   6 +-
+ README.md                                     |  46 +-
+ backend/app/core/config.py                    |  21 +-
+ backend/app/core/runtime.py                   |  43 ++
+ .../app/feature_engineering/authentication.py |  35 +-
+ backend/app/feature_engineering/common.py     |  79 ++-
+ backend/app/feature_engineering/email.py      |  66 +-
+ .../app/feature_engineering/file_activity.py  |  38 +-
+ .../historical_baseline.py                    |   8 +
+ backend/app/feature_engineering/network.py    |  48 +-
+ .../feature_engineering/network_domains.py    |  73 +++
+ backend/app/feature_engineering/peer_group.py | 197 +++---
+ backend/app/feature_engineering/pipeline.py   | 598 +++++++++++-------
+ backend/app/feature_engineering/stage0.py     | 281 +++++---
+ backend/app/feature_engineering/temporal.py   |  78 ++-
+ backend/app/feature_engineering/usb.py        |  24 +-
+ backend/app/ingestion/ground_truth.py         |  88 ++-
+ backend/tests/conftest.py                     |  12 +
+ backend/tests/fixtures/synthetic_cert.py      |  80 +++
+ .../unit/test_cert_loader_timestamp copy.py   |  24 -
+ backend/tests/unit/test_chapter5_pipeline.py  | 209 ++++++
+ backend/tests/unit/test_feature_units_ch5.py  | 136 ++++
+ .../tests/unit/test_ground_truth_r42 copy.py  |  76 ---
+ backend/tests/unit/test_label_tables.py       |  29 +
+ .../unit/test_ldap_snapshot_month copy.py     |  18 -
+ .../test_normalize_cert_timestamp copy.py     |  16 -
+ docs/audits/chapter_1_5_audit.md              |  59 ++
+ scripts/build_labels.py                       |  46 ++
+ scripts/http_host_inventory.py                |  58 ++
+ 30 files changed, 1876 insertions(+), 630 deletions(-)
+ create mode 100644 backend/app/core/runtime.py
+ create mode 100644 backend/app/feature_engineering/network_domains.py
+ create mode 100644 backend/tests/conftest.py
+ create mode 100644 backend/tests/fixtures/synthetic_cert.py
+ delete mode 100644 backend/tests/unit/test_cert_loader_timestamp copy.py
+ create mode 100644 backend/tests/unit/test_chapter5_pipeline.py
+ create mode 100644 backend/tests/unit/test_feature_units_ch5.py
+ delete mode 100644 backend/tests/unit/test_ground_truth_r42 copy.py
+ create mode 100644 backend/tests/unit/test_label_tables.py
+ delete mode 100644 backend/tests/unit/test_ldap_snapshot_month copy.py
+ delete mode 100644 backend/tests/unit/test_normalize_cert_timestamp copy.py
+ create mode 100644 docs/audits/chapter_1_5_audit.md
+ create mode 100644 scripts/build_labels.py
+ create mode 100644 scripts/http_host_inventory.py
+
+diff --git a/.env.example b/.env.example
+index 127c174..f23479e 100644
+--- a/.env.example
++++ b/.env.example
+@@ -25,11 +25,25 @@ LOG_LEVEL=INFO
+ # ------------------------------------------------------------
+ # CERT r4.2 dataset contract
+ # ------------------------------------------------------------
++# On the development machine these point at D:/CIRA_dataset/... (HCEA R5).
+ CERT_RAW_DIR=./datasets/raw/cert_r4.2
+ CERT_GROUND_TRUTH_DIR=./datasets/ground_truth/cert_r4.2
++CERT_PROCESSED_DIR=./datasets/processed
+ CERT_SOURCE_TIMEZONE=UTC
+ CERT_TARGET_TIMEZONE=UTC
+ 
++# ------------------------------------------------------------
++# Execution budget (HCEA v1.0 §17)  [FYP CORE]
++# ------------------------------------------------------------
++# dev | mid | full
++CIRA_PROFILE=dev
++CIRA_MAX_WORKERS=6
++CIRA_CHUNK_ROWS=500000
++CIRA_MAX_RSS_GB=20
++# auto | cpu | cuda
++CIRA_DEVICE=auto
++CIRA_SEED=42
++
+ 
+ # ------------------------------------------------------------
+ # ML model serving  [FYP CORE]
+diff --git a/.gitignore b/.gitignore
+index d245d9f..837b0f3 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -172,4 +172,8 @@ reports/generated/
+ # Keep directory placeholders
+ !experiments/results/.gitkeep
+ !experiments/outputs/.gitkeep
+-!reports/generated/.gitkeep
+\ No newline at end of file
++!reports/generated/.gitkeep
++# ------------------------------------------------------------
++# Local backups written by scripts/apply_ch5_fixes.py
++# ------------------------------------------------------------
++.ch5_fix_backup/
+diff --git a/README.md b/README.md
+index 127047c..3cb27f9 100644
+--- a/README.md
++++ b/README.md
+@@ -1 +1,45 @@
+-# cira-insider-risk
+\ No newline at end of file
++# CIRA: Context-Aware Insider Risk Analytics
++
++Final-year project. Behavioural insider-risk detection on CERT r4.2 with
++TabNet, contextual risk scoring, MITRE ATT&CK enrichment and a SOC dashboard.
++
++Governing documents: `CIRA_FINAL_ARCHITECTURE.md` (architecture),
++`CIRA_IMPLEMENTATION_BIBLE.md` (sequencing), HCEA v1.0 (execution budget).
++
++## Status
++
++Statuses follow the Bible's taxonomy and are only raised after code runs and
++passes its checks.
++
++| Chapter | Component | Status |
++|---|---|---|
++| 1 | Repository foundation | IMPLEMENTED |
++| 2 | Database, ORM, migrations, FastAPI `/health` | IMPLEMENTED |
++| 3 | CERT r4.2 ingestion + ground-truth separation | IMPLEMENTED |
++| 3 | TWOS (secondary dataset) | PLANNED (access request pending) |
++| 4 | Preprocessing and normalization | IMPLEMENTED |
++| 5 | Feature engineering (Stage 0-4) | IMPLEMENTED on synthetic tests; real-data dev/mid/full runs pending |
++| 6-16 | Models, CRI, MITRE, XAI, alerts, API, dashboard, evaluation | PLANNED |
++| 17-18 | Kafka, Redis, Celery, SSE, OpenSearch, observability, K8s | NOT IMPLEMENTED (production extensions) |
++
++See `docs/audits/chapter_1_5_audit.md` for the Chapter 1-5 review.
++
++## Running Chapter 5
++
++Set `CERT_RAW_DIR`, `CERT_GROUND_TRUTH_DIR`, `CERT_PROCESSED_DIR` and
++`CIRA_PROFILE` in `.env` (see `.env.example`), then from `backend/`:
++
++```bash
++python -m app.feature_engineering.pipeline --profile dev
++python ../scripts/build_labels.py            # evaluation-only label tables
++python ../scripts/http_host_inventory.py     # label-blind review of host classes
++```
++
++Work up the profile ladder (dev, then mid, then full). Numbers from `dev`
++are never reported (HCEA R10). Every run appends to `experiments/runlog.jsonl`.
++
++## Tests
++
++```bash
++pytest            # from the repo root
++```
+diff --git a/backend/app/core/config.py b/backend/app/core/config.py
+index 145a601..4a40729 100644
+--- a/backend/app/core/config.py
++++ b/backend/app/core/config.py
+@@ -1,7 +1,11 @@
+ from functools import lru_cache
++from pathlib import Path
+ 
+ from pydantic_settings import BaseSettings, SettingsConfigDict
+ 
++# backend/app/core/config.py -> repository root is three levels above "core".
++_REPO_ROOT = Path(__file__).resolve().parents[3]
++
+ 
+ class Settings(BaseSettings):
+     postgres_user: str = "cira"
+@@ -18,8 +22,21 @@ class Settings(BaseSettings):
+     cert_source_timezone: str = "UTC"
+     cert_target_timezone: str = "UTC"
+ 
++    # Hardware-Constrained Execution Addendum (HCEA v1.0, §17).
++    # Machine-specific absolute paths belong in .env, never in source.
++    cert_processed_dir: str = "datasets/processed"
++    cira_profile: str = "dev"
++    cira_max_workers: int = 6
++    cira_chunk_rows: int = 500_000
++    cira_max_rss_gb: float = 20.0
++    cira_device: str = "auto"
++    cira_seed: int = 42
++
+     model_config = SettingsConfigDict(
+-        env_file="../.env",
++        # Resolved independently of the current working directory, so the
++        # same .env is found from the repo root, backend/, or a test runner.
++        # Later entries override earlier ones.
++        env_file=(str(_REPO_ROOT / ".env"), ".env"),
+         env_file_encoding="utf-8",
+         case_sensitive=False,
+         extra="ignore",
+@@ -31,4 +48,4 @@ def get_settings() -> Settings:
+     return Settings()
+ 
+ 
+-settings = get_settings()
+\ No newline at end of file
++settings = get_settings()
+diff --git a/backend/app/core/runtime.py b/backend/app/core/runtime.py
+new file mode 100644
+index 0000000..dbd4e8d
+--- /dev/null
++++ b/backend/app/core/runtime.py
+@@ -0,0 +1,43 @@
++"""Runtime resource guards (HCEA v1.0, rule R6).
++
++Call ``apply_thread_caps()`` at the very top of every heavy entry point,
++before numpy / scikit-learn / torch are imported, so BLAS and OpenMP pools
++never grab every logical core on the development laptop.
++"""
++from __future__ import annotations
++
++import os
++
++_THREAD_VARS = (
++    "OMP_NUM_THREADS",
++    "MKL_NUM_THREADS",
++    "OPENBLAS_NUM_THREADS",
++    "NUMEXPR_NUM_THREADS",
++    "VECLIB_MAXIMUM_THREADS",
++)
++
++
++def max_workers() -> int:
++    """Worker/thread cap from CIRA_MAX_WORKERS (default 6, per HCEA §1.2)."""
++    try:
++        value = int(os.getenv("CIRA_MAX_WORKERS", "6"))
++    except ValueError:
++        value = 6
++    return max(1, value)
++
++
++def apply_thread_caps() -> int:
++    """Set thread-pool environment caps. Existing explicit values win."""
++    workers = max_workers()
++    for name in _THREAD_VARS:
++        os.environ.setdefault(name, str(workers))
++
++    # torch is optional here; only cap it if it is already importable.
++    try:  # pragma: no cover - depends on local install
++        import torch
++
++        torch.set_num_threads(workers)
++    except Exception:
++        pass
++
++    return workers
+diff --git a/backend/app/feature_engineering/authentication.py b/backend/app/feature_engineering/authentication.py
+index 5b3e34c..7eeb7a8 100644
+--- a/backend/app/feature_engineering/authentication.py
++++ b/backend/app/feature_engineering/authentication.py
+@@ -1,22 +1,41 @@
++"""Authentication (logon) features per user-day.
++
++CERT r4.2 logon.csv records only Logon/Logoff; it has no failed-login or
++source-IP fields, so failed-login and new-IP features are not produced
++(Architecture §10.1 items unsupported by this dataset are omitted, not faked).
++
++Chunk safety: counts are additive; first/last hour combine by min/max
++(see common.combine_rule); ``distinct_auth_pcs`` and ``new_device_count`` are
++recomputed exactly by pipeline.aggregate_logon from deduplicated triples.
++"""
+ from __future__ import annotations
++
+ import pandas as pd
++
+ from .common import off_hours, ratio
+ 
++
+ def aggregate(df: pd.DataFrame) -> pd.DataFrame:
+-    x = df.copy()
+-    x["is_logon"] = x["activity"].eq("logon")
+-    x["is_logoff"] = x["activity"].eq("logoff")
+-    x["off"] = off_hours(x["hour"])
++    x = df[["user_id", "date_day", "hour", "weekday", "device_id", "activity", "event_id"]].copy()
++    is_logon = x["activity"].eq("logon")
++    x["is_logon"] = is_logon.astype("int32")
++    x["is_logoff"] = x["activity"].eq("logoff").astype("int32")
++    x["off_logon"] = (off_hours(x["hour"]).astype(bool) & is_logon).astype("int32")
++    x["weekend_logon"] = ((x["weekday"] >= 5) & is_logon).astype("int32")
++    # First/last *logon* hour: NaN on rows that are not logons so min/max
++    # ignore them.
++    x["logon_hour"] = x["hour"].where(is_logon).astype("float32")
++
+     g = x.groupby(["user_id", "date_day"], observed=True)
+     out = g.agg(
+         login_count=("is_logon", "sum"),
+         logoff_count=("is_logoff", "sum"),
+         auth_event_count=("event_id", "size"),
+         distinct_auth_pcs=("device_id", "nunique"),
+-        first_auth_hour=("hour", "min"),
+-        last_auth_hour=("hour", "max"),
+-        off_hours_logins=("off", lambda s: int(s[x.loc[s.index, "is_logon"]].sum())),
+-        weekend_logins=("weekday", lambda s: int((s >= 5)[x.loc[s.index, "is_logon"]].sum())),
++        first_auth_hour=("logon_hour", "min"),
++        last_auth_hour=("logon_hour", "max"),
++        off_hours_logins=("off_logon", "sum"),
++        weekend_logins=("weekend_logon", "sum"),
+     ).reset_index().rename(columns={"date_day": "date"})
+     out["off_hours_login_ratio"] = ratio(out["off_hours_logins"], out["login_count"])
+     out["weekend_login_ratio"] = ratio(out["weekend_logins"], out["login_count"])
+diff --git a/backend/app/feature_engineering/common.py b/backend/app/feature_engineering/common.py
+index 3f6469e..a89dcc1 100644
+--- a/backend/app/feature_engineering/common.py
++++ b/backend/app/feature_engineering/common.py
+@@ -7,7 +7,6 @@ from __future__ import annotations
+ 
+ import json
+ import os
+-import re
+ import time
+ from pathlib import Path
+ from typing import Iterable
+@@ -153,14 +152,15 @@ def memory_rss_mb() -> float:
+ 
+     return float(value / (1024 ** 2))
+ 
+-def timed_stage(name: str, runlog: Path):
+-    return _StageTimer(name, runlog)
++def timed_stage(name: str, runlog: Path, **extra):
++    return _StageTimer(name, runlog, extra)
+ 
+ 
+ class _StageTimer:
+-    def __init__(self, name: str, runlog: Path):
++    def __init__(self, name: str, runlog: Path, extra: dict | None = None):
+         self.name = name
+         self.runlog = runlog
++        self.extra = dict(extra or {})
+         self.started = 0.0
+         self.peak = 0.0
+ 
+@@ -176,6 +176,7 @@ class _StageTimer:
+             "wall_seconds": round(time.perf_counter() - self.started, 3),
+             "peak_rss_mb": round(self.peak, 2),
+             "status": "failed" if exc else "completed",
++            **self.extra,
+         }
+         self.runlog.parent.mkdir(parents=True, exist_ok=True)
+         with self.runlog.open("a", encoding="utf-8") as fh:
+@@ -190,3 +191,73 @@ def ensure_pyarrow() -> None:
+         raise RuntimeError(
+             "Chapter 5 requires pyarrow for Parquet I/O. Add pyarrow to backend/requirements.txt."
+         ) from exc
++
++
++# ---------------------------------------------------------------------------
++# Chunk-safe combination of per-part aggregates (HCEA §5.3)
++# ---------------------------------------------------------------------------
++# Per-part aggregates are combined with a per-column rule.  Only additive
++# columns may be summed.  Distinct counts are NEVER combined here: they are
++# recomputed exactly from deduplicated (user, day, item) triples.
++
++def combine_rule(column: str) -> str:
++    """Return the correct cross-part reducer for an aggregate column."""
++    if column.endswith(("_first_hour",)) or column == "first_auth_hour":
++        return "min"
++    if column.endswith(("_last_hour",)) or column == "last_auth_hour":
++        return "max"
++    if column.endswith("_flag"):
++        return "max"
++    return "sum"
++
++
++def is_distinct_column(column: str) -> bool:
++    return "distinct" in column
++
++
++def is_ratio_column(column: str) -> bool:
++    return column.endswith(("_ratio", "_avg"))
++
++
++# ---------------------------------------------------------------------------
++# Host classification (vectorised over unique hosts, not 28M rows)
++# ---------------------------------------------------------------------------
++
++def host_matches(host: str, suffixes: tuple[str, ...]) -> bool:
++    return any(host == s or host.endswith("." + s) for s in suffixes)
++
++
++def categorize_hosts(
++    host: pd.Series,
++    categories: dict[str, tuple[str, ...]],
++) -> pd.DataFrame:
++    """Return one int8 indicator column per category, aligned to ``host``."""
++    codes, uniques = pd.factorize(host.astype("string").fillna(""), sort=False)
++    out = {}
++    for name, suffixes in categories.items():
++        lookup = np.fromiter(
++            (host_matches(str(h), suffixes) for h in uniques),
++            dtype=np.int8,
++            count=len(uniques),
++        )
++        values = lookup[codes] if len(uniques) else np.zeros(len(host), dtype=np.int8)
++        out[name] = values
++    return pd.DataFrame(out, index=host.index)
++
++
++# ---------------------------------------------------------------------------
++# Evidence trail (HCEA R8)
++# ---------------------------------------------------------------------------
++
++def repo_root() -> Path:
++    # backend/app/feature_engineering/common.py -> repo root
++    return Path(__file__).resolve().parents[3]
++
++
++def append_experiment_runlog(record: dict) -> Path:
++    """Append one JSON line to experiments/runlog.jsonl in the repository."""
++    path = Path(os.getenv("CIRA_RUNLOG", str(repo_root() / "experiments" / "runlog.jsonl")))
++    path.parent.mkdir(parents=True, exist_ok=True)
++    with path.open("a", encoding="utf-8") as fh:
++        fh.write(json.dumps(record, default=str) + "\n")
++    return path
+diff --git a/backend/app/feature_engineering/email.py b/backend/app/feature_engineering/email.py
+index 6118eac..8ed0752 100644
+--- a/backend/app/feature_engineering/email.py
++++ b/backend/app/feature_engineering/email.py
+@@ -1,31 +1,63 @@
++"""Email metadata features per user-day.
++
++No NLP and no message-content features (Architecture §10.3, §47 rule 17):
++the Stage 0 Parquet tree does not even carry the content column.
++
++"Internal" means an address present in the LDAP email directory; an
++external domain is any recipient domain not used by a directory address.
++
++Chunk safety: counts/sums are additive; ratios are recomputed after the
++cross-part combine; ``email_distinct_external_domains`` is recomputed exactly
++from deduplicated (user, day, domain) triples produced by
++``external_domain_triples``.
++"""
+ from __future__ import annotations
++
+ import re
++
+ import pandas as pd
++
+ from .common import off_hours, ratio
+ 
+ _ADDR_RE = re.compile(r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+ 
+-def _addresses(value: str) -> list[str]:
+-    return [x.casefold() for x in _ADDR_RE.findall(value or "")]
++
++def _addresses(value) -> list[str]:
++    if value is None or (isinstance(value, float) and value != value):
++        return []
++    return [x.casefold() for x in _ADDR_RE.findall(str(value))]
++
++
++def internal_domains(directory: dict[str, str]) -> set[str]:
++    return {addr.split("@", 1)[1] for addr in directory if "@" in addr}
++
++
++def _recipients(x: pd.DataFrame) -> pd.Series:
++    to_list = x["to"].map(_addresses)
++    cc_list = x["cc"].map(_addresses)
++    bcc_list = x["bcc"].map(_addresses)
++    return pd.Series([a + b + c for a, b, c in zip(to_list, cc_list, bcc_list)], index=x.index)
++
+ 
+ def aggregate(df: pd.DataFrame, directory: dict[str, str]) -> pd.DataFrame:
+     x = df.copy()
+     own = set(directory)
+-    x["to_list"] = x["to"].map(_addresses)
+     x["cc_list"] = x["cc"].map(_addresses)
+     x["bcc_list"] = x["bcc"].map(_addresses)
+-    x["all_recips"] = [a+b+c for a,b,c in zip(x["to_list"], x["cc_list"], x["bcc_list"])]
+-    x["recipient_count"] = x["all_recips"].map(len).astype("int16")
+-    x["external_recipient_count"] = x["all_recips"].map(lambda vals: sum(a not in own for a in vals)).astype("int16")
+-    x["external_sender"] = ~x["from"].isin(own)
+-    x["off"] = off_hours(x["hour"])
++    x["all_recips"] = _recipients(x)
++    x["recipient_count"] = x["all_recips"].map(len).astype("int32")
++    x["external_recipient_count"] = x["all_recips"].map(lambda vals: sum(a not in own for a in vals)).astype("int32")
++    x["has_cc"] = x["cc_list"].map(bool).astype("int32")
++    x["has_bcc"] = x["bcc_list"].map(bool).astype("int32")
++    x["external_sender"] = (~x["from"].isin(own)).astype("int32")
++    x["off"] = off_hours(x["hour"]).astype("int32")
+     g = x.groupby(["user_id", "date_day"], observed=True)
+     out = g.agg(
+         emails_sent=("event_id", "size"),
+         email_recipient_count=("recipient_count", "sum"),
+         email_external_recipient_count=("external_recipient_count", "sum"),
+-        email_cc_count=("cc_list", lambda s: sum(bool(v) for v in s)),
+-        email_bcc_count=("bcc_list", lambda s: sum(bool(v) for v in s)),
++        email_cc_count=("has_cc", "sum"),
++        email_bcc_count=("has_bcc", "sum"),
+         email_attachment_count=("attachments", "sum"),
+         email_total_size=("size", "sum"),
+         email_external_sender_count=("external_sender", "sum"),
+@@ -36,3 +68,17 @@ def aggregate(df: pd.DataFrame, directory: dict[str, str]) -> pd.DataFrame:
+     out["email_attachment_avg"] = ratio(out["email_attachment_count"], out["emails_sent"])
+     out["email_off_hours_ratio"] = ratio(out["email_off_hours_count"], out["emails_sent"])
+     return out
++
++
++def external_domain_triples(df: pd.DataFrame, directory: dict[str, str]) -> pd.DataFrame:
++    """Deduplicated (user_id, date_day, domain) rows for external recipients."""
++    internal = internal_domains(directory)
++    recips = _recipients(df)
++    rows = []
++    for user, day, addrs in zip(df["user_id"], df["date_day"], recips):
++        for addr in addrs:
++            domain = addr.split("@", 1)[1]
++            if domain not in internal:
++                rows.append((user, day, domain))
++    out = pd.DataFrame(rows, columns=["user_id", "date_day", "domain"])
++    return out.drop_duplicates()
+diff --git a/backend/app/feature_engineering/file_activity.py b/backend/app/feature_engineering/file_activity.py
+index 2e829d8..482f8a4 100644
+--- a/backend/app/feature_engineering/file_activity.py
++++ b/backend/app/feature_engineering/file_activity.py
+@@ -1,18 +1,36 @@
++"""File-activity features per user-day.
++
++In CERT r4.2, file.csv records file copies to removable media; there is no
++create/modify/delete activity column (that arrives in later releases), so
++those Bible §10.2 sub-features are unsupported and not fabricated.
++
++Chunk safety: counts sum; ``file_distinct_pcs`` is recomputed exactly by the
++pipeline from deduplicated (user, day, pc) triples.
++"""
+ from __future__ import annotations
++
+ import pandas as pd
++
+ from .common import FILE_EXTENSIONS, off_hours
+ 
++
+ def aggregate(df: pd.DataFrame) -> pd.DataFrame:
+-    x = df.copy()
+-    x["off"] = off_hours(x["hour"])
++    x = df[["user_id", "date_day", "hour", "device_id", "file_extension", "event_id"]].copy()
++    x["off"] = off_hours(x["hour"]).astype("int32")
++    ext = x["file_extension"].astype("string").fillna("other")
++    for e in FILE_EXTENSIONS:
++        x[f"file_{e}_count"] = ext.eq(e).astype("int32")
++    x["file_other_ext_count"] = (~ext.isin(FILE_EXTENSIONS)).astype("int32")
++
+     g = x.groupby(["user_id", "date_day"], observed=True)
+-    out = g.agg(
+-        file_event_count=("event_id", "size"),
+-        file_distinct_pcs=("device_id", "nunique"),
+-        file_off_hours_events=("off", "sum"),
+-    ).reset_index().rename(columns={"date_day": "date"})
+-    for ext in FILE_EXTENSIONS:
+-        s = x["file_extension"].eq(ext).groupby([x["user_id"], x["date_day"]], observed=True).sum()
+-        out = out.merge(s.rename(f"file_{ext}_count").reset_index().rename(columns={"date_day": "date"}), on=["user_id", "date"], how="left")
++    spec = {
++        "file_event_count": ("event_id", "size"),
++        "file_distinct_pcs": ("device_id", "nunique"),
++        "file_off_hours_events": ("off", "sum"),
++    }
++    for e in FILE_EXTENSIONS:
++        spec[f"file_{e}_count"] = (f"file_{e}_count", "sum")
++    spec["file_other_ext_count"] = ("file_other_ext_count", "sum")
++    out = g.agg(**spec).reset_index().rename(columns={"date_day": "date"})
+     out["file_archive_or_executable_count"] = out["file_zip_count"] + out["file_exe_count"]
+     return out
+diff --git a/backend/app/feature_engineering/historical_baseline.py b/backend/app/feature_engineering/historical_baseline.py
+index badc867..5d564fe 100644
+--- a/backend/app/feature_engineering/historical_baseline.py
++++ b/backend/app/feature_engineering/historical_baseline.py
+@@ -1,3 +1,10 @@
++"""Per-user historical baseline deviation (Bible Ch5 step 8, HCEA §5.4).
++
++Method (recorded per column in feature_schema.json):
++  trailing rolling z-score over the previous ``window`` calendar days of the
++  dense user-day spine; ``shift(1)`` excludes the current day; null until
++  ``min_periods`` prior days exist and null when the prior std is zero.
++"""
+ from __future__ import annotations
+ import numpy as np
+ import pandas as pd
+@@ -8,6 +15,7 @@ DEFAULT_BASELINES = [
+     "usb_connect_count", "file_event_count", "emails_sent",
+     "external_email_ratio", "email_total_size", "http_request_count",
+     "http_distinct_hosts", "http_off_hours_count",
++    "usb_event_count", "total_event_count",
+ ]
+ 
+ def add_baselines(df: pd.DataFrame, columns: list[str] | None = None, window: int = BASELINE_WINDOW, min_periods: int = BASELINE_MIN_PERIODS) -> tuple[pd.DataFrame, dict[str, dict]]:
+diff --git a/backend/app/feature_engineering/network.py b/backend/app/feature_engineering/network.py
+index 971fb5e..a8dd2bc 100644
+--- a/backend/app/feature_engineering/network.py
++++ b/backend/app/feature_engineering/network.py
+@@ -1,26 +1,36 @@
++"""HTTP / network features per user-day.
++
++CERT r4.2 http.csv has no byte counts, ports or inbound/outbound direction,
++so Bible §10.5 byte-volume features are unsupported and not produced.
++What *is* supported: request volume, off-hours volume, destination
++diversity, first-seen destinations, and expert host-class counts from the
++committed, human-reviewed list in network_domains.py (HCEA §5.2).
++
++Chunk safety: all columns emitted here are additive counts.
++``http_distinct_hosts`` and ``http_new_host_count`` are recomputed exactly
++by pipeline.aggregate_http from deduplicated (user, day, host) triples.
++"""
+ from __future__ import annotations
++
+ import pandas as pd
+-from .common import off_hours
+ 
+-# Deliberately conservative structural categories. The actual host list must be
+-# independently reviewed; this module never reads ground truth or answer files.
+-# No host category is hard-coded here.  The dataset context requires any
+-# host-class list to be independently reviewed and kept as a project artifact.
+-DEFAULT_HOST_CATEGORIES: dict[str, tuple[str, ...]] = {}
++from .common import categorize_hosts, off_hours
++from .network_domains import HOST_CATEGORIES
+ 
+-def _category(host: pd.Series, suffixes: tuple[str, ...]) -> pd.Series:
+-    return host.map(lambda h: int(any(h == s or h.endswith("." + s) for s in suffixes))).astype("int8")
+ 
+ def aggregate(df: pd.DataFrame, categories: dict[str, tuple[str, ...]] | None = None) -> pd.DataFrame:
+-    x = df.copy()
+-    cats = categories or DEFAULT_HOST_CATEGORIES
+-    x["off"] = off_hours(x["hour"])
++    cats = HOST_CATEGORIES if categories is None else categories
++    x = df[["user_id", "date_day", "hour", "host", "event_id"]].copy()
++    x["off"] = off_hours(x["hour"]).astype("int32")
++    flags = categorize_hosts(x["host"], cats)
++    spec = {
++        "http_request_count": ("event_id", "size"),
++        "http_distinct_hosts": ("host", "nunique"),
++        "http_off_hours_count": ("off", "sum"),
++    }
++    for name in cats:
++        col = f"http_{name}_count"
++        x[col] = flags[name].astype("int32")
++        spec[col] = (col, "sum")
+     g = x.groupby(["user_id", "date_day"], observed=True)
+-    out = g.agg(http_request_count=("event_id", "size"), http_distinct_hosts=("host", "nunique"), http_off_hours_count=("off", "sum")).reset_index().rename(columns={"date_day": "date"})
+-    for name, suffixes in cats.items():
+-        flags = _category(x["host"], suffixes)
+-        grouped = flags.groupby([x["user_id"], x["date_day"]], observed=True).max()
+-        grouped = grouped.rename(f"http_{name}_flag").reset_index().rename(columns={"date_day": "date"})
+-        out = out.merge(grouped, on=["user_id", "date"], how="left")
+-    out["http_new_host_count"] = 0.0
+-    return out
++    return g.agg(**spec).reset_index().rename(columns={"date_day": "date"})
+diff --git a/backend/app/feature_engineering/network_domains.py b/backend/app/feature_engineering/network_domains.py
+new file mode 100644
+index 0000000..3427e1b
+--- /dev/null
++++ b/backend/app/feature_engineering/network_domains.py
+@@ -0,0 +1,73 @@
++"""Expert host-class list for HTTP features (HCEA v1.0 §5.2, deviation D-8).
++
++STATUS: DRAFT - REQUIRES HUMAN REVIEW BEFORE ANY REPORTED (mid/full) RUN.
++
++Provenance rule
++---------------
++This list was written from general knowledge of public web categories.
++It was NOT derived from CERT answer files, insiders.csv, scenario files or
++any other ground-truth artefact, and it must never be edited by looking at
++which hosts malicious users visited. Doing so would leak labels into feature
++design and invalidate every evaluation number.
++
++To review it against the real host vocabulary without touching labels, run
++``python scripts/http_host_inventory.py`` (label-blind: it only reads the
++Stage 0 Parquet tree) and adjust the tuples below by category, not by user.
++
++Matching is exact-host or subdomain suffix (``drive.google.com`` matches
++``drive.google.com`` and ``x.drive.google.com``, never ``google.com``).
++Every change to this file changes the feature set: bump
++``HOST_CATEGORIES_VERSION`` so Stage 1 caches are rebuilt.
++"""
++from __future__ import annotations
++
++HOST_CATEGORIES_VERSION = "2026-09-24-draft1"
++
++HOST_CATEGORIES: dict[str, tuple[str, ...]] = {
++    # General-purpose job boards and recruiting platforms.
++    "job_search": (
++        "monster.com",
++        "indeed.com",
++        "careerbuilder.com",
++        "simplyhired.com",
++        "glassdoor.com",
++        "dice.com",
++        "ziprecruiter.com",
++        "linkedin.com",
++        "jobhuntersbible.com",
++        "job-hunt.org",
++        "hotjobs.yahoo.com",
++        "usajobs.gov",
++    ),
++    # Consumer cloud storage / file-sharing services (exfiltration channel).
++    "cloud_storage": (
++        "dropbox.com",
++        "box.com",
++        "drive.google.com",
++        "docs.google.com",
++        "onedrive.live.com",
++        "skydrive.live.com",
++        "mediafire.com",
++        "megaupload.com",
++        "rapidshare.com",
++        "sendspace.com",
++        "4shared.com",
++        "yousendit.com",
++    ),
++    # Public leak / paste sites (MITRE T1567-style exfiltration to web service).
++    "leak_paste": (
++        "wikileaks.org",
++        "pastebin.com",
++        "cryptome.org",
++    ),
++    # Hacking-tool, keylogger and spyware distribution sites.
++    "hacking_tools": (
++        "keylogger.org",
++        "spyrix.com",
++        "refog.com",
++        "spectorsoft.com",
++        "hackforums.net",
++        "exploit-db.com",
++        "packetstormsecurity.com",
++    ),
++}
+diff --git a/backend/app/feature_engineering/peer_group.py b/backend/app/feature_engineering/peer_group.py
+index 3e9a5cd..39b14df 100644
+--- a/backend/app/feature_engineering/peer_group.py
++++ b/backend/app/feature_engineering/peer_group.py
+@@ -1,3 +1,22 @@
++"""Peer-group deviation features (Architecture §10.9, HCEA §5.4).
++
++Peer population
++    Users sharing the same functional_unit + department in the LDAP snapshot
++    for the feature month (point-in-time join), compared on the SAME calendar
++    day.  Same-day comparison means a row never sees peers' future days
++    (the previous month-pooled version did).  functional_unit is part of the
++    key because CERT department names are only unique within a functional
++    unit.
++
++Statistic
++    Exact leave-one-out median: the target user is excluded from their own
++    peer median.  Computed in O(n log n) with a sort + rank lookup instead of
++    a per-row Python loop, so the full ~4x10^5-row matrix takes seconds.
++
++Nulls
++    Null when the user has no LDAP row for that month, the department is
++    blank, the feature value is null, or the user has no peers that day.
++"""
+ from __future__ import annotations
+ 
+ import numpy as np
+@@ -12,6 +31,47 @@ PEER_FEATURES = [
+     "http_distinct_hosts",
+ ]
+ 
++PEER_KEY_COLUMNS = ["functional_unit", "department"]
++_CONTEXT_COLUMNS = ["user_id", "snapshot_month", *PEER_KEY_COLUMNS]
++
++
++def leave_one_out_median(values: pd.Series, groups: pd.Series) -> pd.Series:
++    """Median of each row's group with that row removed (NaN if alone).
++
++    ``values`` must have no nulls; ``groups`` is any hashable group key.
++    """
++    n_rows = len(values)
++    if n_rows == 0:
++        return pd.Series(dtype="float64", index=values.index)
++
++    gcode = pd.factorize(groups, sort=False)[0]
++    v = values.to_numpy(dtype="float64")
++    order = np.lexsort((v, gcode))           # sort by group, then value
++    g_sorted = gcode[order]
++    v_sorted = v[order]
++
++    # group start offset and size for every sorted position
++    boundaries = np.flatnonzero(np.r_[True, g_sorted[1:] != g_sorted[:-1]])
++    sizes = np.diff(np.r_[boundaries, n_rows])
++    group_idx = np.repeat(np.arange(len(boundaries)), sizes)
++    start = boundaries[group_idx]
++    n = sizes[group_idx]
++    rank = np.arange(n_rows) - start           # position of the row in its group
++
++    m = n - 1                                   # size after removing the row
++    k1 = (m - 1) // 2
++    k2 = m // 2
++    idx1 = k1 + (k1 >= rank)                    # skip over the removed row
++    idx2 = k2 + (k2 >= rank)
++    valid = m > 0
++    safe1 = np.where(valid, start + idx1, 0)
++    safe2 = np.where(valid, start + idx2, 0)
++    med_sorted = np.where(valid, (v_sorted[safe1] + v_sorted[safe2]) / 2.0, np.nan)
++
++    result = np.empty(n_rows, dtype="float64")
++    result[order] = med_sorted
++    return pd.Series(result, index=values.index)
++
+ 
+ def add_peer_features(
+     df: pd.DataFrame,
+@@ -19,107 +79,52 @@ def add_peer_features(
+ ) -> tuple[pd.DataFrame, dict[str, dict]]:
+     out = df.copy()
+     out["date"] = pd.to_datetime(out["date"])
++    out["snapshot_month"] = out["date"].dt.to_period("M").dt.to_timestamp()
+ 
+     ctx = ldap.copy()
+-    ctx["snapshot_month"] = pd.to_datetime(ctx["snapshot_month"])
+-    ctx["snapshot_month"] = (
+-        ctx["snapshot_month"].dt.to_period("M").dt.to_timestamp()
+-    )
+-
+-    out["snapshot_month"] = (
+-        out["date"].dt.to_period("M").dt.to_timestamp()
+-    )
+-
+-    # Point-in-time join: only the LDAP snapshot for the feature month
+-    # is eligible for the peer-group context.
+-    ctx = ctx.sort_values(["user_id", "snapshot_month"])
+-    out = out.sort_values(["user_id", "snapshot_month"])
+-
+-    out = out.merge(
+-        ctx,
+-        on=["user_id", "snapshot_month"],
+-        how="left",
+-        suffixes=("", "_ctx"),
+-    )
+-
+-    meta = {}
+-
+-    valid_dept = (
+-        out["department"]
+-        .fillna("")
+-        .astype("string")
+-        .str.strip()
+-        .ne("")
+-    )
+-
+-    # Peer population is department + snapshot_month, excluding
+-    # the target user from their own peer statistics.
+-    peer_keys = ["snapshot_month", "department"]
++    for col in PEER_KEY_COLUMNS:
++        if col not in ctx.columns:
++            ctx[col] = ""
++    ctx["snapshot_month"] = pd.to_datetime(ctx["snapshot_month"]).dt.to_period("M").dt.to_timestamp()
++    ctx = ctx[_CONTEXT_COLUMNS].drop_duplicates(["user_id", "snapshot_month"], keep="last")
+ 
++    out = out.merge(ctx, on=["user_id", "snapshot_month"], how="left", suffixes=("", "_ctx"))
++
++    dept = out["department"].astype("string").fillna("").str.strip()
++    fu = out["functional_unit"].astype("string").fillna("").str.strip()
++    has_group = dept.ne("")
++    group_key = fu + "\x1f" + dept + "\x1f" + out["date"].dt.strftime("%Y-%m-%d")
++
++    meta: dict[str, dict] = {}
+     for feature in PEER_FEATURES:
+         if feature not in out.columns:
+             continue
+-
+-        peer_median = pd.Series(
+-            np.nan,
+-            index=out.index,
+-            dtype="float32",
+-        )
+-
+-        valid = out.loc[
+-            valid_dept
+-            & out[feature].notna()
+-        ]
+-
+-        for _, group in valid.groupby(peer_keys, observed=True):
+-            values = group[[ "user_id", feature ]]
+-
+-            for idx, row in values.iterrows():
+-                peers = values.loc[
+-                    values["user_id"] != row["user_id"],
+-                    feature,
+-                ]
+-
+-                if not peers.empty:
+-                    peer_median.loc[idx] = np.float32(
+-                        peers.median()
+-                    )
+-
+-        out[f"peer_median_{feature}"] = peer_median
+-        out[f"peer_dev_{feature}"] = (
+-            out[feature] - peer_median
+-        ).astype("float32")
+-        out[f"peer_abs_dev_{feature}"] = (
+-            out[feature] - peer_median
+-        ).abs().astype("float32")
+-
+-        meta[f"peer_dev_{feature}"] = {
+-            "peer_key": "department + snapshot_month",
++        mask = has_group & out[feature].notna()
++        median = pd.Series(np.nan, index=out.index, dtype="float64")
++        if mask.any():
++            median.loc[mask] = leave_one_out_median(out.loc[mask, feature], group_key[mask])
++        median = median.astype("float32")
++        out[f"peer_median_{feature}"] = median
++        dev = (out[feature].astype("float32") - median).astype("float32")
++        out[f"peer_dev_{feature}"] = dev
++        out[f"peer_abs_dev_{feature}"] = dev.abs().astype("float32")
++        info = {
++            "peer_key": "functional_unit + department + same calendar day (LDAP snapshot of that month)",
++            "peer_statistic": "leave-one-out median (target user excluded)",
+             "peer_excludes_target": True,
+-            "null_policy": (
+-                "null when department is missing, "
+-                "peer population is empty, or peer median unavailable"
+-            ),
++            "null_policy": "null when LDAP department missing, value missing, or no peers that day",
+         }
+-
+-        meta[f"peer_abs_dev_{feature}"] = dict(
+-            meta[f"peer_dev_{feature}"]
+-        )
+-
+-    # Count distinct users, not user-day rows.
+-    peer_sizes = (
+-        out.loc[valid_dept]
+-        .groupby(peer_keys, observed=True)["user_id"]
+-        .transform("nunique")
+-        - 1
+-    )
+-
+-    out["peer_department_size"] = (
+-        peer_sizes.where(valid_dept)
+-        .clip(lower=0)
+-        .astype("float32")
+-    )
+-
+-    out = out.drop(columns=["snapshot_month"])
+-
+-    return out, meta
+\ No newline at end of file
++        meta[f"peer_median_{feature}"] = dict(info)
++        meta[f"peer_dev_{feature}"] = dict(info)
++        meta[f"peer_abs_dev_{feature}"] = dict(info)
++
++    # Distinct peers (excluding self) in the same group on the same day.
++    size = group_key.where(has_group).map(group_key[has_group].value_counts()) - 1
++    out["peer_department_size"] = size.clip(lower=0).astype("float32")
++    meta["peer_department_size"] = {
++        "peer_key": "functional_unit + department + same calendar day",
++        "null_policy": "null when LDAP department missing",
++    }
++
++    out = out.drop(columns=["snapshot_month", *PEER_KEY_COLUMNS])
++    return out, meta
+diff --git a/backend/app/feature_engineering/pipeline.py b/backend/app/feature_engineering/pipeline.py
+index 159e1cc..0591822 100644
+--- a/backend/app/feature_engineering/pipeline.py
++++ b/backend/app/feature_engineering/pipeline.py
+@@ -1,19 +1,25 @@
+ """CIRA Chapter 5 end-to-end feature pipeline.
+ 
+-Execution model:
+-Stage 0  raw CERT CSV -> typed, feature-safe Parquet
+-Stage 1  domain Parquet -> independent user-day aggregates
+-Stage 2  calendar spine + temporal features
++Execution model (HCEA v1.0 §5):
++Stage 0  raw CERT CSV -> typed, feature-safe Parquet (resumable per chunk)
++Stage 1  domain Parquet -> independent user-day aggregates (cached per domain)
++Stage 2  dense calendar spine + explicit missing-value policy + temporal
+ Stage 3  trailing historical baselines
+-Stage 4  point-in-time peer context + final float32 matrix/schema
++Stage 4  point-in-time peer context, static psychometric context,
++         final float32 matrix + feature_schema.json
+ 
+-Labels are intentionally absent from every function in this module.
++Labels are absent from every function in this module.  The only ground-truth
++access is ``_profile_users``, which returns a bare set of user ids used to
++choose which users are *in* a dev/mid profile (HCEA §4 sampling rule).  No
++label value, window or scenario reaches a feature.
+ """
+ from __future__ import annotations
+ 
+ import argparse
++import hashlib
+ import json
+ import os
++import time
+ from pathlib import Path
+ from typing import Any, Callable
+ 
+@@ -21,122 +27,135 @@ import numpy as np
+ import pandas as pd
+ 
+ from . import authentication, email, file_activity, network, temporal, usb
+-from .common import atomic_to_parquet, ensure_pyarrow, memory_rss_mb, timed_stage, to_float32
+-from .context import build_context, email_directory, load_ldap
++from .common import (
++    append_experiment_runlog,
++    atomic_to_parquet,
++    combine_rule,
++    ensure_pyarrow,
++    is_distinct_column,
++    is_ratio_column,
++    memory_rss_mb,
++    timed_stage,
++    to_float32,
++)
++from .context import build_context, email_directory, load_ldap, load_psychometric
+ from .historical_baseline import add_baselines
+-from .stage0 import run_stage0
++from .network_domains import HOST_CATEGORIES_VERSION
+ from .peer_group import add_peer_features
++from .stage0 import config_fingerprint, run_stage0
+ 
++FEATURE_PIPELINE_VERSION = "chapter5-v2"
+ 
++# dev window: CERT r4.2 malicious activity starts mid-2010, so a Jan-Apr 2010
++# window contains no insider behaviour at all.  Jun-Aug 2010 keeps the
++# 3-month dev budget while overlapping real scenario activity.
+ PROFILE_CONFIG = {
+-    "dev": {"users": 50, "start": "2010-01-02", "end": "2010-04-02", "output": "user_day_dev.parquet"},
+-    "mid": {"users": 250, "start": None, "end": None, "output": "user_day_mid.parquet"},
+-    "full": {"users": None, "start": None, "end": None, "output": "user_day_full.parquet"},
++    "dev": {"insiders": 10, "benign": 40, "start": "2010-06-01", "end": "2010-09-01", "output": "user_day_dev.parquet"},
++    "mid": {"insiders": None, "benign": 180, "start": None, "end": None, "output": "user_day_mid.parquet"},
++    "full": {"insiders": None, "benign": None, "start": None, "end": None, "output": "user_day_full.parquet"},
+ }
+ 
+ DOMAIN_ORDER = ("logon", "device", "file", "email", "http")
++LABEL_LIKE = {"label", "labels", "malicious", "is_malicious", "ground_truth", "scenario", "target", "y", "insider", "is_insider"}
++CONTEXT_STRING_COLUMNS = ["email", "employee_name", "role", "department", "business_unit", "functional_unit", "team", "supervisor"]
++PSYCH_RENAME = {"o": "psych_openness", "c": "psych_conscientiousness", "e": "psych_extraversion", "a": "psych_agreeableness", "n": "psych_neuroticism"}
++
++
++# ---------------------------------------------------------------------------
++# Profile selection (user-level sampling only)
++# ---------------------------------------------------------------------------
++
++def _ground_truth_dir(raw_dir: Path, override: str | Path | None) -> Path:
++    if override:
++        return Path(override)
++    env = os.getenv("CERT_GROUND_TRUTH_DIR")
++    if env:
++        return Path(env)
++    return raw_dir.parent.parent / "ground_truth" / raw_dir.name
+ 
+ 
+ def _profile_users(
+     processed_dir: Path,
+     raw_dir: Path,
+     profile: str,
++    *,
++    ground_truth_dir: str | Path | None = None,
+ ) -> set[str] | None:
+-    """Build deterministic user-level execution profiles.
+-
+-    Ground truth is used only to construct the execution profile.  Only the
+-    resulting user-ID set is passed into Stage 0; labels never enter feature
+-    engineering.
+-    """
++    """Deterministic user set for dev/mid; None (= everyone) for full."""
+     if profile == "full":
+         return None
++    cfg = PROFILE_CONFIG[profile]
+ 
+-    psych = pd.read_parquet(
+-        processed_dir / "context" / "psychometric.parquet",
+-        columns=["user_id"],
+-    )
+-    available_users = set(psych["user_id"].astype(str).str.strip())
+-
+-    gt_dir = raw_dir.parent.parent / "ground_truth" / raw_dir.name
+-    insiders_path = gt_dir / "insiders.csv"
++    psych = pd.read_parquet(processed_dir / "context" / "psychometric.parquet", columns=["user_id"])
++    available = set(psych["user_id"].astype(str).str.strip())
+ 
++    insiders_path = _ground_truth_dir(raw_dir, ground_truth_dir) / "insiders.csv"
+     if not insiders_path.exists():
+-        raise FileNotFoundError(
+-            f"Required CERT r4.2 insider profile file not found: {insiders_path}"
+-        )
+-
+-    gt = pd.read_csv(insiders_path, usecols=["dataset", "user"])
+-    insiders = set(
+-        gt.loc[gt["dataset"].astype(str).str.strip() == "4.2", "user"]
+-        .astype(str)
+-        .str.strip()
+-        .str.casefold()
+-    )
+-
+-    missing_insiders = insiders - available_users
+-    if missing_insiders:
+-        raise RuntimeError(
+-            f"{len(missing_insiders)} CERT r4.2 insiders are missing from "
+-            f"the available user population: {sorted(missing_insiders)}"
+-        )
+-
+-    benign = sorted(available_users - insiders)
+-
+-    if profile == "dev":
+-        insider_count = 10
+-        benign_count = 40
+-    elif profile == "mid":
+-        insider_count = len(insiders)
+-        benign_count = 180
++        raise FileNotFoundError(f"CERT r4.2 insiders.csv not found: {insiders_path}")
++    gt = pd.read_csv(insiders_path)
++    gt.columns = [str(c).strip().lower() for c in gt.columns]
++    gt = gt[gt["dataset"].astype(str).str.strip() == "4.2"].copy()
++    gt["user"] = gt["user"].astype(str).str.strip().str.casefold()
++    insiders = set(gt["user"])
++
++    missing = insiders - available
++    if missing:
++        raise RuntimeError(f"{len(missing)} r4.2 insiders missing from the user population: {sorted(missing)}")
++
++    if cfg["start"] is not None:
++        # Keep only insiders whose documented activity window overlaps the
++        # profile window; otherwise a dev run contains no insider behaviour.
++        s = pd.to_datetime(gt["start"], errors="coerce")
++        e = pd.to_datetime(gt["end"], errors="coerce")
++        overlap = (s < pd.Timestamp(cfg["end"])) & (e >= pd.Timestamp(cfg["start"]))
++        eligible = sorted(set(gt.loc[overlap, "user"]))
+     else:
+-        raise ValueError(f"Unsupported profile: {profile}")
++        eligible = sorted(insiders)
+ 
+-    if len(insiders) < insider_count:
+-        raise RuntimeError(
+-            f"Need {insider_count} insiders for {profile}, found {len(insiders)}"
+-        )
+-    if len(benign) < benign_count:
++    n_insiders = cfg["insiders"] if cfg["insiders"] is not None else len(eligible)
++    if len(eligible) < n_insiders:
+         raise RuntimeError(
+-            f"Need {benign_count} benign users for {profile}, found {len(benign)}"
++            f"profile={profile} needs {n_insiders} insiders active in "
++            f"{cfg['start']}..{cfg['end']}, found {len(eligible)}"
+         )
++    benign = sorted(available - insiders)
++    if len(benign) < cfg["benign"]:
++        raise RuntimeError(f"profile={profile} needs {cfg['benign']} benign users, found {len(benign)}")
++    return set(eligible[:n_insiders]) | set(benign[: cfg["benign"]])
+ 
+-    selected_insiders = sorted(insiders)[:insider_count]
+-    selected_benign = benign[:benign_count]
+ 
+-    return set(selected_insiders + selected_benign)
++# ---------------------------------------------------------------------------
++# Stage 1 helpers: chunk-safe combination and exact distinct counts
++# ---------------------------------------------------------------------------
+ 
+-def _parts(processed_dir: Path, domain: str, profile: str):
+-    root = (
+-        processed_dir
+-        / "events"
+-        / f"profile={profile}"
+-        / f"source_type={domain}"
+-    )
++def _parts(processed_dir: Path, domain: str, profile: str) -> list[Path]:
++    root = processed_dir / "events" / f"profile={profile}" / f"source_type={domain}"
+     return sorted(root.rglob("*.parquet"))
+ 
+ 
+-def _concat_aggregates(parts: list[pd.DataFrame]) -> pd.DataFrame:
++def _combine_partials(parts: list[pd.DataFrame]) -> pd.DataFrame:
++    """Combine per-part aggregates with per-column rules (HCEA §5.3).
++
++    Ratios and distinct counts are dropped here; ratios are recomputed from
++    combined numerators/denominators and distincts from exact triples.
++    """
++    parts = [p for p in parts if not p.empty]
+     if not parts:
+         return pd.DataFrame(columns=["user_id", "date"])
+     out = pd.concat(parts, ignore_index=True)
+     out["date"] = pd.to_datetime(out["date"])
+-    numeric = [c for c in out.columns if c not in {"user_id", "date"}]
+-    agg = {c: "sum" for c in numeric}
+-    for c in ("first_auth_hour",):
+-        if c in agg:
+-            agg[c] = "min"
+-    for c in ("last_auth_hour",):
+-        if c in agg:
+-            agg[c] = "max"
+-    result = out.groupby(["user_id", "date"], as_index=False, observed=True).agg(agg)
+-    return result
++    value_cols = [c for c in out.columns if c not in {"user_id", "date"} and not is_ratio_column(c) and not is_distinct_column(c)]
++    rules = {c: combine_rule(c) for c in value_cols}
++    return out.groupby(["user_id", "date"], as_index=False, observed=True).agg(rules)
+ 
+ 
+ def _recompute_derived_ratios(df: pd.DataFrame) -> pd.DataFrame:
+     out = df.copy()
+-    def r(num, den, name):
++
++    def r(num: str, den: str, name: str) -> None:
+         if num in out.columns and den in out.columns:
+             out[name] = (out[num] / out[den].replace(0, np.nan)).astype("float32")
++
+     r("off_hours_logins", "login_count", "off_hours_login_ratio")
+     r("weekend_logins", "login_count", "weekend_login_ratio")
+     r("usb_off_hours_events", "usb_event_count", "usb_off_hours_ratio")
+@@ -147,102 +166,137 @@ def _recompute_derived_ratios(df: pd.DataFrame) -> pd.DataFrame:
+     return out
+ 
+ 
++def _read_triples(paths: list[Path], item: str) -> pd.DataFrame:
++    """Globally deduplicated (user_id, date_day, item) rows.
++
++    Arrow-backed strings keep this intermediate compact even for http.
++    """
++    frames = [
++        pd.read_parquet(p, columns=["user_id", "date_day", item], engine="pyarrow", dtype_backend="pyarrow").drop_duplicates()
++        for p in paths
++    ]
++    if not frames:
++        return pd.DataFrame(columns=["user_id", "date_day", item])
++    return pd.concat(frames, ignore_index=True).drop_duplicates()
++
++
++def _distinct_count(triples: pd.DataFrame, name: str) -> pd.DataFrame:
++    if triples.empty:
++        return pd.DataFrame(columns=["user_id", "date", name])
++    counts = triples.groupby(["user_id", "date_day"], observed=True).size().rename(name).reset_index()
++    counts = counts.rename(columns={"date_day": "date"})
++    counts["user_id"] = counts["user_id"].astype("string")
++    counts["date"] = pd.to_datetime(counts["date"]).astype("datetime64[ns]")
++    counts[name] = counts[name].astype("int32")
++    return counts
++
++
++def _first_seen_count(triples: pd.DataFrame, item: str, name: str) -> pd.DataFrame:
++    """Items seen for the first time (within the profile window) on each day."""
++    if triples.empty:
++        return pd.DataFrame(columns=["user_id", "date", name])
++    first = triples.groupby(["user_id", item], observed=True)["date_day"].min().reset_index()
++    return _distinct_count(first, name)
++
++
++def _attach(base: pd.DataFrame, extra: pd.DataFrame, fill_zero: bool = True) -> pd.DataFrame:
++    base = base.copy()
++    base["user_id"] = base["user_id"].astype("string")
++    base["date"] = pd.to_datetime(base["date"]).astype("datetime64[ns]")
++    name = [c for c in extra.columns if c not in {"user_id", "date"}]
++    out = base.drop(columns=name, errors="ignore").merge(extra, on=["user_id", "date"], how="left")
++    if fill_zero:
++        for c in name:
++            out[c] = out[c].fillna(0)
++    return out
++
++
+ def aggregate_logon(processed_dir: Path, profile: str) -> pd.DataFrame:
+-    partials, distinct = [], []
+-    for path in _parts(processed_dir, "logon", profile):
+-        df = pd.read_parquet(path, engine="pyarrow")
+-        partials.append(authentication.aggregate(df))
+-        distinct.append(df[["user_id", "date_day", "device_id"]].drop_duplicates())
+-    out = _recompute_derived_ratios(_concat_aggregates(partials))
+-    if distinct:
+-        d = pd.concat(distinct, ignore_index=True).drop_duplicates()
+-        pc = d.groupby(["user_id", "date_day"], observed=True)["device_id"].nunique().rename("distinct_auth_pcs").reset_index().rename(columns={"date_day": "date"})
+-        out = out.drop(columns=["distinct_auth_pcs"], errors="ignore").merge(pc, on=["user_id", "date"], how="left")
+-    # New-PC flag is point-in-time and uses only earlier activity.
+-    first_seen = None
+-    if distinct:
+-        d = pd.concat(distinct, ignore_index=True).drop_duplicates().sort_values(["user_id", "date_day"])
+-        d["first_pc_day"] = d.groupby(["user_id", "device_id"], observed=True)["date_day"].transform("min")
+-        d["new_pc"] = d["first_pc_day"].eq(d["date_day"])
+-        first = d.groupby(["user_id", "date_day"], observed=True)["new_pc"].sum().astype("int32").reset_index(name="new_device_count")
+-        first = first.rename(columns={"date_day": "date"})
+-        out = out.merge(first, on=["user_id", "date"], how="left")
+-    if "new_device_count" not in out.columns:
+-        out["new_device_count"] = 0.0
+-    out["new_device_count"] = out["new_device_count"].fillna(0).astype("float32")
++    paths = _parts(processed_dir, "logon", profile)
++    partials = [authentication.aggregate(pd.read_parquet(p, engine="pyarrow")) for p in paths]
++    out = _combine_partials(partials)
++    if out.empty:
++        return out
++    triples = _read_triples(paths, "device_id")
++    out = _attach(out, _distinct_count(triples, "distinct_auth_pcs"))
++    out = _attach(out, _first_seen_count(triples, "device_id", "new_device_count"))
+     out["new_device_flag"] = (out["new_device_count"] > 0).astype("float32")
+-    return out
++    return _recompute_derived_ratios(out)
+ 
+ 
+ def aggregate_usb(processed_dir: Path, profile: str) -> pd.DataFrame:
+-    parts = [usb.aggregate(pd.read_parquet(p, engine="pyarrow")) for p in _parts(processed_dir, "device", profile)]
+-    return _recompute_derived_ratios(_concat_aggregates(parts))
++    paths = _parts(processed_dir, "device", profile)
++    out = _combine_partials([usb.aggregate(pd.read_parquet(p, engine="pyarrow")) for p in paths])
++    if out.empty:
++        return out
++    out = _attach(out, _distinct_count(_read_triples(paths, "device_id"), "usb_distinct_pcs"))
++    return _recompute_derived_ratios(out)
+ 
+ 
+ def aggregate_file(processed_dir: Path, profile: str) -> pd.DataFrame:
+-    parts = [file_activity.aggregate(pd.read_parquet(p, engine="pyarrow")) for p in _parts(processed_dir, "file", profile)]
+-    return _concat_aggregates(parts)
++    paths = _parts(processed_dir, "file", profile)
++    out = _combine_partials([file_activity.aggregate(pd.read_parquet(p, engine="pyarrow")) for p in paths])
++    if out.empty:
++        return out
++    return _attach(out, _distinct_count(_read_triples(paths, "device_id"), "file_distinct_pcs"))
+ 
+ 
+ def aggregate_email(processed_dir: Path, profile: str) -> pd.DataFrame:
+     directory = email_directory(processed_dir)
+-    parts = [email.aggregate(pd.read_parquet(p, engine="pyarrow"), directory) for p in _parts(processed_dir, "email", profile)]
+-    return _recompute_derived_ratios(_concat_aggregates(parts))
+-
+-
+-def aggregate_http(processed_dir: Path, profile: str) -> pd.DataFrame:
+-    """HTTP aggregation with part-level checkpoints.
+-
+-    Each source Parquet part produces two tiny checkpoint files: user-day
+-    aggregates and unique user-day-host pairs.  A killed run resumes from the
+-    last completed part; the final distinct-host calculation is exact after a
+-    global drop_duplicates over the checkpoint tree.
+-    """
+-    root = processed_dir / "_runlog" / "http_parts" / profile
+-    agg_root = root / "aggregates"
+-    host_root = root / "hosts"
++    paths = _parts(processed_dir, "email", profile)
++    partials, domain_triples = [], []
++    for p in paths:
++        df = pd.read_parquet(p, engine="pyarrow")
++        partials.append(email.aggregate(df, directory))
++        domain_triples.append(email.external_domain_triples(df, directory))
++    out = _combine_partials(partials)
++    if out.empty:
++        return out
++    triples = pd.concat(domain_triples, ignore_index=True).drop_duplicates() if domain_triples else pd.DataFrame()
++    out = _attach(out, _distinct_count(triples, "email_distinct_external_domains"))
++    return _recompute_derived_ratios(out)
++
++
++def aggregate_http(processed_dir: Path, profile: str, fingerprint: str) -> pd.DataFrame:
++    """HTTP aggregation with part-level checkpoints (HCEA §5.5 resumability)."""
++    root = processed_dir / "_runlog" / "http_parts" / profile / fingerprint
++    agg_root, host_root = root / "aggregates", root / "hosts"
+     agg_root.mkdir(parents=True, exist_ok=True)
+     host_root.mkdir(parents=True, exist_ok=True)
+-    parts = _parts(processed_dir, "http", profile)
+-    for idx, path in enumerate(parts):
+-        agg_path = agg_root / f"part-{idx:06d}.parquet"
+-        host_path = host_root / f"part-{idx:06d}.parquet"
++    for path in _parts(processed_dir, "http", profile):
++        key = hashlib.sha1(str(path.relative_to(processed_dir)).encode()).hexdigest()[:16]
++        agg_path, host_path = agg_root / f"{key}.parquet", host_root / f"{key}.parquet"
+         if agg_path.exists() and host_path.exists():
+             continue
+         df = pd.read_parquet(path, engine="pyarrow")
+-        part_agg = network.aggregate(df)
+-        part_hosts = df[["user_id", "date_day", "host"]].drop_duplicates()
+-        atomic_to_parquet(part_agg, agg_path)
+-        atomic_to_parquet(part_hosts, host_path)
+-
+-    partials = [pd.read_parquet(p, engine="pyarrow") for p in sorted(agg_root.glob("*.parquet"))]
+-    out = _concat_aggregates(partials)
+-    host_parts = [pd.read_parquet(p, engine="pyarrow") for p in sorted(host_root.glob("*.parquet"))]
+-    if host_parts:
+-        hp = pd.concat(host_parts, ignore_index=True).drop_duplicates()
+-        counts = hp.groupby(["user_id", "date_day"], observed=True)["host"].nunique().rename("http_distinct_hosts").reset_index().rename(columns={"date_day": "date"})
+-        out = out.drop(columns=["http_distinct_hosts"], errors="ignore").merge(counts, on=["user_id", "date"], how="left")
+-        hp = hp.sort_values(["user_id", "date_day", "host"])
+-        hp["first_day"] = hp.groupby(["user_id", "host"], observed=True)["date_day"].transform("min")
+-        new = hp[hp["date_day"].eq(hp["first_day"])].groupby(["user_id", "date_day"], observed=True).size().rename("http_new_host_count").reset_index().rename(columns={"date_day": "date"})
+-        out = out.drop(columns=["http_new_host_count"], errors="ignore").merge(new, on=["user_id", "date"], how="left")
+-    if "http_new_host_count" not in out.columns:
+-        out["http_new_host_count"] = 0.0
+-    out["http_new_host_count"] = out["http_new_host_count"].fillna(0).astype("float32")
++        atomic_to_parquet(df[["user_id", "date_day", "host"]].drop_duplicates(), host_path)
++        atomic_to_parquet(network.aggregate(df), agg_path)  # written last = completion marker
++
++    out = _combine_partials([pd.read_parquet(p, engine="pyarrow") for p in sorted(agg_root.glob("*.parquet"))])
++    if out.empty:
++        return out
++    triples = _read_triples(sorted(host_root.glob("*.parquet")), "host")
++    out = _attach(out, _distinct_count(triples, "http_distinct_hosts"))
++    out = _attach(out, _first_seen_count(triples, "host", "http_new_host_count"))
+     return out
+ 
+ 
++# ---------------------------------------------------------------------------
++# Stage 2: spine + missing-value policy
++# ---------------------------------------------------------------------------
++
+ def build_calendar_spine(domain_frames: list[pd.DataFrame]) -> pd.DataFrame:
+     nonempty = [x for x in domain_frames if not x.empty]
+     if not nonempty:
+         return pd.DataFrame(columns=["user_id", "date"])
+     keys = pd.concat([x[["user_id", "date"]] for x in nonempty], ignore_index=True)
++    keys["date"] = pd.to_datetime(keys["date"])
+     bounds = keys.groupby("user_id", observed=True)["date"].agg(["min", "max"]).reset_index()
+-    rows = []
+-    for r in bounds.itertuples(index=False):
+-        dates = pd.date_range(r.min, r.max, freq="D")
+-        rows.append(pd.DataFrame({"user_id": r.user_id, "date": dates}))
+-    return pd.concat(rows, ignore_index=True)
++    rows = [pd.DataFrame({"user_id": r.user_id, "date": pd.date_range(r.min, r.max, freq="D")}) for r in bounds.itertuples(index=False)]
++    spine = pd.concat(rows, ignore_index=True)
++    spine["user_id"] = spine["user_id"].astype("string")
++    spine["date"] = spine["date"].astype("datetime64[ns]")
++    return spine
+ 
+ 
+ def _merge_feature_frames(spine: pd.DataFrame, frames: list[pd.DataFrame]) -> pd.DataFrame:
+@@ -251,151 +305,223 @@ def _merge_feature_frames(spine: pd.DataFrame, frames: list[pd.DataFrame]) -> pd
+         if frame.empty:
+             continue
+         frame = frame.copy()
+-        frame["date"] = pd.to_datetime(frame["date"])
++        frame["user_id"] = frame["user_id"].astype("string")
++        frame["date"] = pd.to_datetime(frame["date"]).astype("datetime64[ns]")
+         dup = set(out.columns).intersection(frame.columns) - {"user_id", "date"}
+         if dup:
+-            frame = frame.drop(columns=list(dup))
++            raise RuntimeError(f"Two domains emitted the same feature column(s): {sorted(dup)}")
+         out = out.merge(frame, on=["user_id", "date"], how="left", sort=False)
+     return out
+ 
+ 
+-def _fill_missing(df: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, str]]:
++def _is_hour_column(col: str) -> bool:
++    return col.endswith(("_first_hour", "_last_hour")) or col in {"first_auth_hour", "last_auth_hour"}
++
++
++def apply_missing_policy(df: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, str]]:
++    """Absent is not zero for every column (HCEA §5.4, Chapter 4 policy).
++
++    counts / sums / flags -> 0     (no event of that kind happened that day)
++    ratios / averages     -> null  (undefined: denominator is zero)
++    first/last hours      -> null  (there is no such clock time)
++    """
+     policy: dict[str, str] = {}
+     for col in df.columns:
+-        if col in {"user_id", "date", "role", "department", "business_unit", "functional_unit", "team", "supervisor", "email"}:
++        if col in {"user_id", "date"} or not pd.api.types.is_numeric_dtype(df[col]):
+             continue
+-        if pd.api.types.is_numeric_dtype(df[col]):
++        if is_ratio_column(col):
++            policy[col] = "null: undefined when the denominator is zero (no qualifying events that day)"
++        elif _is_hour_column(col):
++            policy[col] = "null: no event of this type that day (absence is not a clock time)"
++        else:
+             df[col] = df[col].fillna(0)
+-            policy[col] = "zero: no observed event for this domain on the calendar day"
++            policy[col] = "zero: no observed event of this kind on the calendar day"
+     return df, policy
+ 
+ 
+-def _schema(df: pd.DataFrame, null_policy: dict[str, str], baseline_meta: dict[str, dict], peer_meta: dict[str, dict]) -> dict[str, Any]:
++# ---------------------------------------------------------------------------
++# Stage 4 helpers
++# ---------------------------------------------------------------------------
++
++def add_psychometric(df: pd.DataFrame, psych: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, dict]]:
++    p = psych.rename(columns=PSYCH_RENAME)[["user_id", *PSYCH_RENAME.values()]].drop_duplicates("user_id")
++    p["user_id"] = p["user_id"].astype("string")
++    out = df.merge(p, on="user_id", how="left")
++    meta = {c: {"null_policy": "null when the user has no psychometric record", "static": True} for c in PSYCH_RENAME.values()}
++    return out, meta
++
++
++def _source_domain(col: str) -> str:
++    if col.startswith(("login", "logoff", "auth_event", "off_hours_login", "weekend_login", "first_auth_hour", "last_auth_hour", "distinct_auth", "new_device")):
++        return "logon"
++    if col.startswith("usb_"):
++        return "device"
++    if col.startswith("file_"):
++        return "file"
++    if col.startswith(("email", "emails_", "external_email")):
++        return "email"
++    if col.startswith("http_"):
++        return "http"
++    if col.startswith("hist_"):
++        return "historical_baseline"
++    if col.startswith("peer_"):
++        return "peer_group"
++    if col.startswith("psych_"):
++        return "psychometric_context"
++    if col in temporal.TEMPORAL_META or col.startswith("rolling_"):
++        return "temporal"
++    return "derived"
++
++
++def _schema(df: pd.DataFrame, meta_sources: list[dict], profile: str, fingerprint: str) -> dict[str, Any]:
++    merged: dict[str, dict] = {}
++    for source in meta_sources:
++        for k, v in source.items():
++            merged.setdefault(k, {}).update(v if isinstance(v, dict) else {"null_policy": v})
+     columns = []
+     for col in df.columns:
+         if col in {"user_id", "date"}:
+             continue
+-        source = "derived"
+-        if col.startswith(("login", "logoff", "auth", "off_hours_login", "weekend_login", "first_auth", "last_auth", "distinct_auth", "new_device")):
+-            source = "logon"
+-        elif col.startswith("usb_"):
+-            source = "device"
+-        elif col.startswith("file_"):
+-            source = "file"
+-        elif col.startswith(("email", "emails_", "external_email")):
+-            source = "email"
+-        elif col.startswith("http_"):
+-            source = "http"
+-        elif col.startswith("hist_"):
+-            source = "historical_baseline"
+-        elif col.startswith("peer_"):
+-            source = "peer_group"
+-        elif col in {"day_of_week", "is_weekend", "first_auth_off_hours", "last_auth_off_hours"}:
+-            source = "temporal"
+-        elif col in {"role", "department", "business_unit", "functional_unit", "team", "supervisor"}:
+-            source = "ldap_context"
+-        columns.append({
+-            "name": col,
+-            "dtype": str(df[col].dtype),
+-            "source_domain": source,
+-            "null_policy": null_policy.get(col, "not applicable"),
+-            **baseline_meta.get(col, {}),
+-            **peer_meta.get(col, {}),
+-        })
++        entry = {"name": col, "dtype": str(df[col].dtype), "source_domain": _source_domain(col)}
++        entry.update(merged.get(col, {}))
++        entry.setdefault("null_policy", "not applicable")
++        columns.append(entry)
+     return {
+         "chapter": 5,
++        "pipeline_version": FEATURE_PIPELINE_VERSION,
++        "host_categories_version": HOST_CATEGORIES_VERSION,
++        "profile": profile,
++        "config_fingerprint": fingerprint,
+         "dataset": "CERT r4.2",
+         "granularity": "user-day",
+-        "timezone": os.getenv("CERT_TIMEZONE", "UTC"),
+-        "calendar_policy": "dense active-span user-day spine",
+-        "label_policy": "labels excluded; evaluation-only join occurs outside this feature path",
++        "index_columns": ["user_id", "date"],
++        "timezone": os.getenv("CERT_SOURCE_TIMEZONE", "UTC"),
++        "calendar_policy": "dense spine from each user's first to last active day",
++        "label_policy": "labels excluded; evaluation-only join from <processed>/labels/ happens outside this path",
++        "downstream_note": "matrix contains nulls by design; Chapter 6+ must impute with a policy fitted on the training split only",
+         "columns": columns,
+     }
+ 
+ 
+-def run_pipeline(raw_dir: str | Path, processed_dir: str | Path, *, profile: str = "dev", force_stage0: bool = False, timezone: str = "UTC") -> Path:
++# ---------------------------------------------------------------------------
++# Orchestration
++# ---------------------------------------------------------------------------
++
++def run_pipeline(
++    raw_dir: str | Path,
++    processed_dir: str | Path,
++    *,
++    profile: str = "dev",
++    force_stage0: bool = False,
++    timezone: str = "UTC",
++    ground_truth_dir: str | Path | None = None,
++) -> Path:
+     ensure_pyarrow()
+     if profile not in PROFILE_CONFIG:
+         raise ValueError(f"Unknown CIRA_PROFILE={profile}; expected dev, mid, full")
++    started = time.perf_counter()
+     cfg = PROFILE_CONFIG[profile]
+     raw_dir, processed_dir = Path(raw_dir), Path(processed_dir)
+     processed_dir.mkdir(parents=True, exist_ok=True)
+     runlog = processed_dir / "_runlog" / "stages.jsonl"
+ 
+     build_context(raw_dir, processed_dir)
+-    users = _profile_users(processed_dir, raw_dir, profile)
+-    stage0_marker = processed_dir / "_runlog" / f"stage0_{profile}.json"
+-    if force_stage0 or not stage0_marker.exists():
+-        with timed_stage("stage0", runlog):
+-            result = run_stage0(
+-                raw_dir,
+-                processed_dir,
+-                profile=profile,
+-                timezone=timezone,
+-                users=users,
+-                start=cfg["start"],
+-                end=cfg["end"],
+-                force=force_stage0,
+-            )
+-            stage0_marker.write_text(json.dumps(result, indent=2, default=str), encoding="utf-8")
+-
+-    with timed_stage("stage1", runlog):
+-        features_dir = processed_dir / "features"
+-        features_dir.mkdir(parents=True, exist_ok=True)
++    users = _profile_users(processed_dir, raw_dir, profile, ground_truth_dir=ground_truth_dir)
++    s0_fp = config_fingerprint(profile, users, cfg["start"], cfg["end"], timezone)
++    fingerprint = hashlib.sha256(f"{s0_fp}|{FEATURE_PIPELINE_VERSION}|{HOST_CATEGORIES_VERSION}".encode()).hexdigest()[:16]
++
++    with timed_stage("stage0", runlog, profile=profile):
++        stage0 = run_stage0(
++            raw_dir, processed_dir, profile=profile, timezone=timezone, users=users,
++            start=cfg["start"], end=cfg["end"], force=force_stage0,
++        )
++
++    features_dir = processed_dir / "features"
++    features_dir.mkdir(parents=True, exist_ok=True)
++    with timed_stage("stage1", runlog, profile=profile, fingerprint=fingerprint):
+         builders: list[tuple[str, Callable[[], pd.DataFrame]]] = [
+             ("logon", lambda: aggregate_logon(processed_dir, profile)),
+             ("device", lambda: aggregate_usb(processed_dir, profile)),
+             ("file", lambda: aggregate_file(processed_dir, profile)),
+             ("email", lambda: aggregate_email(processed_dir, profile)),
+-            ("http", lambda: aggregate_http(processed_dir, profile)),
++            ("http", lambda: aggregate_http(processed_dir, profile, fingerprint)),
+         ]
+         stage1 = []
+         for name, builder in builders:
+-            target = features_dir / f"stage1_{profile}_{name}.parquet"
++            target = features_dir / "stage1" / f"{profile}_{name}_{fingerprint}.parquet"
+             if target.exists():
+                 frame = pd.read_parquet(target, engine="pyarrow")
+             else:
+-                frame = builder()
++                with timed_stage(f"stage1:{name}", runlog, profile=profile):
++                    frame = builder()
+                 atomic_to_parquet(frame, target)
+             stage1.append(frame)
+ 
+-    with timed_stage("stage2_4", runlog):
++    with timed_stage("stage2_4", runlog, profile=profile):
+         spine = build_calendar_spine(stage1)
+         out = _merge_feature_frames(spine, stage1)
++        out, null_policy = apply_missing_policy(out)
+         out = temporal.add_temporal(out)
+-        out, null_policy = _fill_missing(out)
+         out, baseline_meta = add_baselines(out)
+-        ldap = load_ldap(processed_dir)
+-        out, peer_meta = add_peer_features(out, ldap)
+-        # Keep only numeric model inputs plus identity/date.  LDAP categorical
+-        # context is used to compute peer deviations but is not silently encoded.
+-        drop_context = [c for c in ["email", "employee_name", "role", "department", "business_unit", "functional_unit", "team", "supervisor"] if c in out.columns]
+-        out = out.drop(columns=drop_context, errors="ignore")
++        out, peer_meta = add_peer_features(out, load_ldap(processed_dir))
++        out, psych_meta = add_psychometric(out, load_psychometric(processed_dir))
++        out = out.drop(columns=[c for c in CONTEXT_STRING_COLUMNS if c in out.columns])
++
++        non_numeric = [c for c in out.columns if c not in {"user_id", "date"} and not pd.api.types.is_numeric_dtype(out[c])]
++        if non_numeric:
++            raise RuntimeError(f"Non-numeric columns reached the feature matrix: {non_numeric}")
++        leaked = [c for c in out.columns if c.lower() in LABEL_LIKE or "malicious" in c.lower() or "insider" in c.lower()]
++        if leaked:
++            raise RuntimeError(f"Label leakage guard triggered in final feature matrix: {leaked}")
++
+         out = to_float32(out)
+         out["user_id"] = out["user_id"].astype("string")
+-        out["date"] = pd.to_datetime(out["date"]).dt.date.astype("string")
++        out["date"] = pd.to_datetime(out["date"]).dt.strftime("%Y-%m-%d").astype("string")
+         out = out.sort_values(["user_id", "date"]).reset_index(drop=True)
+-        if any(c.lower() in {"label", "labels", "malicious", "is_malicious", "ground_truth", "scenario", "target", "y"} for c in out.columns):
+-            raise RuntimeError("Label leakage guard triggered in final feature matrix")
+-        schema = _schema(out, null_policy, baseline_meta, peer_meta)
+-        output_name = cfg["output"]
+-        atomic_to_parquet(out, processed_dir / "features" / output_name)
+-        (processed_dir / "features").mkdir(parents=True, exist_ok=True)
+-        (processed_dir / "features" / "feature_schema.json").write_text(json.dumps(schema, indent=2), encoding="utf-8")
+-        summary = {"profile": profile, "rows": int(len(out)), "features": int(len(out.columns)-2), "peak_rss_mb": memory_rss_mb()}
+-        (processed_dir / "_runlog" / f"summary_{profile}.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+-    return processed_dir / "features" / output_name
++
++        schema = _schema(out, [null_policy, temporal.TEMPORAL_META, baseline_meta, peer_meta, psych_meta], profile, fingerprint)
++        output = features_dir / cfg["output"]
++        atomic_to_parquet(out, output)
++        schema_text = json.dumps(schema, indent=2)
++        (features_dir / f"feature_schema_{profile}.json").write_text(schema_text, encoding="utf-8")
++        (features_dir / "feature_schema.json").write_text(schema_text, encoding="utf-8")
++
++    summary = {
++        "stage": "chapter5_pipeline",
++        "profile": profile,
++        "config_fingerprint": fingerprint,
++        "rows_in": int(sum(r.get("rows_written", 0) for r in stage0)),
++        "rows_rejected": int(sum(r.get("rows_rejected", 0) for r in stage0)),
++        "rows_out": int(len(out)),
++        "users": int(out["user_id"].nunique()),
++        "features": int(len(out.columns) - 2),
++        "wall_seconds": round(time.perf_counter() - started, 2),
++        "peak_rss_mb": round(memory_rss_mb(), 1),
++        "output": str(output),
++    }
++    (processed_dir / "_runlog" / f"summary_{profile}.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
++    append_experiment_runlog(summary)
++    return output
+ 
+ 
+ def main() -> None:
+-    p = argparse.ArgumentParser()
+-    p.add_argument("--raw-dir", required=True)
+-    p.add_argument("--processed-dir", required=True)
++    from app.core.runtime import apply_thread_caps
++
++    apply_thread_caps()
++    p = argparse.ArgumentParser(description="CIRA Chapter 5 feature pipeline")
++    p.add_argument("--raw-dir", default=os.getenv("CERT_RAW_DIR"), required=os.getenv("CERT_RAW_DIR") is None)
++    p.add_argument("--processed-dir", default=os.getenv("CERT_PROCESSED_DIR"), required=os.getenv("CERT_PROCESSED_DIR") is None)
++    p.add_argument("--ground-truth-dir", default=os.getenv("CERT_GROUND_TRUTH_DIR"))
+     p.add_argument("--profile", default=os.getenv("CIRA_PROFILE", "dev"), choices=tuple(PROFILE_CONFIG))
+-    p.add_argument("--timezone", default=os.getenv("CERT_TIMEZONE", "UTC"))
++    p.add_argument("--timezone", default=os.getenv("CERT_SOURCE_TIMEZONE", "UTC"))
+     p.add_argument("--force-stage0", action="store_true")
+     args = p.parse_args()
+-    print(run_pipeline(args.raw_dir, args.processed_dir, profile=args.profile, force_stage0=args.force_stage0, timezone=args.timezone))
++    print(run_pipeline(
++        args.raw_dir, args.processed_dir, profile=args.profile,
++        force_stage0=args.force_stage0, timezone=args.timezone,
++        ground_truth_dir=args.ground_truth_dir,
++    ))
++
+ 
+ if __name__ == "__main__":
+     main()
+diff --git a/backend/app/feature_engineering/stage0.py b/backend/app/feature_engineering/stage0.py
+index 5beff7c..a9adb2f 100644
+--- a/backend/app/feature_engineering/stage0.py
++++ b/backend/app/feature_engineering/stage0.py
+@@ -1,78 +1,149 @@
+ """Chapter 5 Stage 0: streaming CERT r4.2 -> typed Parquet.
+ 
+-Raw CSV is never loaded wholesale.  Each domain is read exactly once by this
+-stage, in chunks, and written atomically as zstd Parquet parts partitioned by
+-month.  Ground truth is never read or referenced.
++Raw CSV is never loaded wholesale (HCEA R1).  Each domain is read in chunks
++and written atomically as zstd Parquet parts partitioned by month (R2).
++Ground truth is never read or referenced here.
++
++Chapter 4 policy, applied vectorised per chunk (the per-event Pydantic path
++in app.preprocessing is kept for the canonical contract and tests; running it
++on 3.2x10^7 rows is outside the HCEA time budget):
++  * identifiers: strip + casefold (same result as normalize_identifier for
++    CERT's ASCII ids);
++  * timestamps: fixed CERT format, localised to the configured timezone;
++  * malformed rows (unparseable date, missing id/user/pc) are written to a
++    rejected sink with a reason code, never silently dropped;
++  * duplicate source ids within a chunk are rejected as ``duplicate_event``.
++    CERT ids are unique per domain; a global cross-chunk dedupe would need a
++    multi-GB id set and is intentionally not done (documented deviation);
++  * missing numeric values stay null (email size/attachments are not
++    zero-filled).
++
++Resumability (R7): every source chunk writes its outputs, then a ``.done``
++marker.  A re-run skips chunks whose marker exists, so a crash at 80% costs
++the remaining 20%.  A changed configuration (profile users, window, code
++version) invalidates the domain's outputs and markers automatically.
+ """
+ from __future__ import annotations
+ 
+ import argparse
++import hashlib
+ import json
++import os
++import shutil
+ from pathlib import Path
+ from typing import Any
+ 
+ import pandas as pd
+ 
+-from .common import DATE_FORMAT, atomic_to_parquet, ensure_pyarrow, memory_rss_mb, normalize_user, parse_host, extension, timed_stage
++from .common import DATE_FORMAT, atomic_to_parquet, ensure_pyarrow, extension, memory_rss_mb, normalize_user, parse_host, timed_stage
++
++STAGE0_VERSION = "stage0-v2"
+ 
+ DOMAIN_COLUMNS: dict[str, list[str]] = {
+     "logon": ["id", "date", "user", "pc", "activity"],
+     "device": ["id", "date", "user", "pc", "activity"],
+-    "file": ["id", "date", "user", "pc", "filename", "content"],
++    "file": ["id", "date", "user", "pc", "filename"],
+     "email": ["id", "date", "user", "pc", "to", "cc", "bcc", "from", "size", "attachments"],
+     "http": ["id", "date", "user", "pc", "url"],
+ }
+-
++DOMAINS = ("logon", "device", "file", "email", "http")
+ CSV_NAMES = {name: f"{name}.csv" for name in DOMAIN_COLUMNS}
++# HCEA §5.2: 500k for http, 1M for the smaller domains. Halve if RSS > 8 GB.
+ CHUNK_SIZES = {"http": 500_000, "email": 1_000_000, "logon": 1_000_000, "device": 1_000_000, "file": 1_000_000}
++_READ_DTYPES = {"id": "string", "date": "string", "user": "string", "pc": "string"}
++
++
++def config_fingerprint(profile: str, users: set[str] | None, start: str | None, end: str | None, timezone: str) -> str:
++    payload = json.dumps(
++        {
++            "version": STAGE0_VERSION,
++            "profile": profile,
++            "users": sorted(users) if users is not None else None,
++            "start": start,
++            "end": end,
++            "timezone": timezone,
++        },
++        sort_keys=True,
++    )
++    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
++
++
++def _split_valid(domain: str, chunk: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
++    """Return (valid rows with parsed timestamp, rejected rows with reason)."""
++    raw_date = chunk["date"].astype("string").str.strip()
++    ts = pd.to_datetime(raw_date, format=DATE_FORMAT, errors="coerce")
++    reason = pd.Series(pd.NA, index=chunk.index, dtype="string")
++    for col, code in (("id", "missing_event_id"), ("user", "missing_user_id"), ("pc", "missing_device_id")):
++        blank = chunk[col].isna() | chunk[col].astype("string").str.strip().eq("")
++        reason = reason.mask(reason.isna() & blank, code)
++    reason = reason.mask(reason.isna() & ts.isna(), "unparseable_timestamp")
++    ids = chunk["id"].astype("string").str.strip()
++    dup = ids.duplicated(keep="first") & reason.isna()
++    reason = reason.mask(dup, "duplicate_event")
++
++    bad = reason.notna()
++    rejected = chunk.loc[bad, ["id", "date", "user", "pc"]].astype("string").copy()
++    rejected["reason_code"] = reason[bad]
++    rejected["domain"] = domain
++    valid = chunk.loc[~bad].copy()
++    valid["_ts"] = ts[~bad]
++    return valid, rejected
+ 
+ 
+ def _canonical_domain_chunk(domain: str, chunk: pd.DataFrame, timezone: str) -> pd.DataFrame:
+-    out = chunk.copy()
+-    out.columns = [str(c).strip().lower() for c in out.columns]
++    out = chunk
+     out["user_id"] = normalize_user(out["user"])
+     out["device_id"] = out["pc"].astype("string").str.strip().str.casefold()
+     out["event_id"] = out["id"].astype("string").str.strip()
+-    # CERT's date has a fixed format.  Parse only once per retained row.
+-    ts = pd.to_datetime(out["date"].astype("string").str.strip(), format=DATE_FORMAT, errors="raise")
++    ts = out.pop("_ts")
+     out["timestamp"] = ts.dt.tz_localize(timezone)
+     out["date_day"] = ts.dt.normalize()
+     out["hour"] = ts.dt.hour.astype("int8")
+     out["weekday"] = ts.dt.dayofweek.astype("int8")
+     out["month"] = ts.dt.strftime("%Y-%m")
+ 
+-    if domain in {"logon", "device"}:
+-        out["activity"] = out["activity"].astype("string").str.strip().str.casefold()
+-    if domain == "file":
+-        out["filename"] = out["filename"].astype("string").fillna("")
+-        out["file_extension"] = extension(out["filename"])
+-    if domain == "email":
+-        for col in ("to", "cc", "bcc", "from"):
+-            out[col] = out[col].astype("string").fillna("").str.strip().str.casefold()
+-        out["size"] = pd.to_numeric(out["size"], errors="coerce").fillna(0).astype("int32")
+-        out["attachments"] = pd.to_numeric(out["attachments"], errors="coerce").fillna(0).astype("int16")
+-    if domain == "http":
+-        out["host"] = parse_host(out["url"])
+-
+-    # Feature-safe processed representation: raw content/URLs are not carried forward.
+     keep = ["event_id", "timestamp", "date_day", "hour", "weekday", "month", "user_id", "device_id"]
+     if domain in {"logon", "device"}:
++        out["activity"] = out["activity"].astype("string").str.strip().str.casefold()
+         keep += ["activity"]
+     elif domain == "file":
++        out["file_extension"] = extension(out["filename"].astype("string").fillna(""))
+         keep += ["file_extension"]
+     elif domain == "email":
++        for col in ("to", "cc", "bcc", "from"):
++            out[col] = out[col].astype("string").fillna("").str.strip().str.casefold()
++        # Missing stays missing (Chapter 4 policy): no zero-fill.
++        out["size"] = pd.to_numeric(out["size"], errors="coerce").astype("float32")
++        out["attachments"] = pd.to_numeric(out["attachments"], errors="coerce").astype("float32")
+         keep += ["to", "cc", "bcc", "from", "size", "attachments"]
+     elif domain == "http":
++        # D-8: raw URL dropped; host kept. Source id preserves traceability.
++        out["host"] = parse_host(out["url"])
+         keep += ["host"]
+ 
+-    out = out[keep]
+-    out["event_id"] = out["event_id"].astype("string")
+-    out["user_id"] = out["user_id"].astype("string")
+-    out["device_id"] = out["device_id"].astype("string")
+-    out["month"] = out["month"].astype("string")
++    out = out[keep].copy()
++    for col in ("event_id", "user_id", "device_id", "month"):
++        out[col] = out[col].astype("string")
+     return out
+ 
+ 
++def _domain_paths(processed_dir: Path, profile: str, domain: str) -> dict[str, Path]:
++    return {
++        "events": processed_dir / "events" / f"profile={profile}" / f"source_type={domain}",
++        "rejected": processed_dir / "rejected" / f"profile={profile}" / f"source_type={domain}",
++        "chunks": processed_dir / "_runlog" / "stage0_parts" / profile / domain,
++        "marker": processed_dir / "_runlog" / "stage0_domains" / profile / f"{domain}.json",
++    }
++
++
++def _reset_domain(paths: dict[str, Path]) -> None:
++    for key in ("events", "rejected", "chunks"):
++        if paths[key].exists():
++            shutil.rmtree(paths[key])
++    if paths["marker"].exists():
++        paths["marker"].unlink()
++
++
+ def convert_domain(
+     raw_dir: Path,
+     processed_dir: Path,
+@@ -84,49 +155,70 @@ def convert_domain(
+     start: str | None = None,
+     end: str | None = None,
+     force: bool = False,
++    chunksize: int | None = None,
+ ) -> dict[str, Any]:
+     ensure_pyarrow()
+     src = raw_dir / CSV_NAMES[domain]
+-    out_root = (
+-    processed_dir
+-    / "events"
+-    / f"profile={profile}"
+-    / f"source_type={domain}"
+-)
+     if not src.exists():
+         raise FileNotFoundError(src)
+-    if force and out_root.exists():
+-        for p in out_root.rglob("*.parquet"):
+-            p.unlink()
+-    out_root.mkdir(parents=True, exist_ok=True)
+-    rows = 0
+-    written = 0
+-    peak = memory_rss_mb()
++    paths = _domain_paths(processed_dir, profile, domain)
++    fingerprint = config_fingerprint(profile, users, start, end, timezone)
++
++    fp_file = paths["chunks"] / "_fingerprint"
++    if force or (fp_file.exists() and fp_file.read_text(encoding="utf-8") != fingerprint):
++        _reset_domain(paths)
++    paths["chunks"].mkdir(parents=True, exist_ok=True)
++    fp_file.write_text(fingerprint, encoding="utf-8")
++
+     start_ts = pd.Timestamp(start) if start else None
+     end_ts = pd.Timestamp(end) if end else None
++    size = chunksize or CHUNK_SIZES[domain]
++    totals = {"raw_rows_seen": 0, "rows_written": 0, "rows_rejected": 0, "chunks_skipped": 0}
++    peak = memory_rss_mb()
+     runlog = processed_dir / "_runlog" / "stages.jsonl"
+-    with timed_stage(f"stage0:{domain}", runlog):
+-        for part, chunk in enumerate(pd.read_csv(src, usecols=DOMAIN_COLUMNS[domain], chunksize=CHUNK_SIZES[domain], low_memory=False)):
+-            rows += len(chunk)
+-            normalized = _canonical_domain_chunk(domain, chunk, timezone)
++
++    with timed_stage(f"stage0:{domain}", runlog, profile=profile, fingerprint=fingerprint):
++        reader = pd.read_csv(src, usecols=DOMAIN_COLUMNS[domain], dtype=_READ_DTYPES, chunksize=size, low_memory=False)
++        for part, chunk in enumerate(reader):
++            done = paths["chunks"] / f"chunk-{part:06d}.done"
++            if done.exists():
++                counts = json.loads(done.read_text(encoding="utf-8"))
++                for key in ("raw_rows_seen", "rows_written", "rows_rejected"):
++                    totals[key] += counts[key]
++                totals["chunks_skipped"] += 1
++                continue
++
++            chunk.columns = [str(c).strip().lower() for c in chunk.columns]
++            valid, rejected = _split_valid(domain, chunk)
++            normalized = _canonical_domain_chunk(domain, valid, timezone)
+             if users is not None:
+                 normalized = normalized[normalized["user_id"].isin(users)]
++                rejected = rejected[normalize_user(rejected["user"]).isin(users) | rejected["user"].isna()]
+             if start_ts is not None:
+                 normalized = normalized[normalized["date_day"] >= start_ts]
+             if end_ts is not None:
+                 normalized = normalized[normalized["date_day"] < end_ts]
+-            if normalized.empty:
+-                continue
+-            peak = max(peak, memory_rss_mb())
+-            month = str(normalized["month"].iloc[0])
+-            # Raw files are globally time-sorted, so a chunk can span at most a small
+-            # number of month partitions. Split by month without retaining prior chunks.
++
++            written = 0
+             for month_value, month_df in normalized.groupby("month", sort=False):
+-                target_dir = out_root / f"month={month_value}"
+-                target = target_dir / f"part-{part:06d}.parquet"
++                target = paths["events"] / f"month={month_value}" / f"part-{part:06d}.parquet"
+                 atomic_to_parquet(month_df.drop(columns=["month"]), target)
+                 written += len(month_df)
+-    return {"domain": domain, "raw_rows_seen": rows, "rows_written": written, "peak_rss_mb": peak}
++            if not rejected.empty:
++                atomic_to_parquet(rejected.reset_index(drop=True), paths["rejected"] / f"part-{part:06d}.parquet")
++
++            counts = {"raw_rows_seen": len(chunk), "rows_written": written, "rows_rejected": len(rejected)}
++            tmp = done.with_suffix(".tmp")
++            tmp.write_text(json.dumps(counts), encoding="utf-8")
++            os.replace(tmp, done)
++            for key in counts:
++                totals[key] += counts[key]
++            peak = max(peak, memory_rss_mb())
++
++    result = {"domain": domain, "profile": profile, "fingerprint": fingerprint, "peak_rss_mb": round(peak, 1), **totals}
++    paths["marker"].parent.mkdir(parents=True, exist_ok=True)
++    paths["marker"].write_text(json.dumps(result, indent=2), encoding="utf-8")
++    return result
+ 
+ 
+ def run_stage0(
+@@ -139,61 +231,56 @@ def run_stage0(
+     start: str | None = None,
+     end: str | None = None,
+     force: bool = False,
++    domains: tuple[str, ...] = DOMAINS,
+ ) -> list[dict[str, Any]]:
+     raw_dir, processed_dir = Path(raw_dir), Path(processed_dir)
+-
++    fingerprint = config_fingerprint(profile, users, start, end, timezone)
+     results = []
+-
+-    marker_root = (
+-        processed_dir
+-        / "_runlog"
+-        / "stage0_domains"
+-        / profile
+-    )
+-    marker_root.mkdir(parents=True, exist_ok=True)
+-
+-    for domain in ("logon", "device", "file", "email", "http"):
+-        marker = marker_root / f"{domain}.json"
+-
++    for domain in domains:
++        marker = _domain_paths(processed_dir, profile, domain)["marker"]
+         if marker.exists() and not force:
+-            results.append(
+-                json.loads(marker.read_text(encoding="utf-8"))
++            cached = json.loads(marker.read_text(encoding="utf-8"))
++            if cached.get("fingerprint") == fingerprint:
++                results.append(cached)
++                continue
++        results.append(
++            convert_domain(
++                raw_dir, processed_dir, domain,
++                profile=profile, timezone=timezone, users=users,
++                start=start, end=end, force=force,
+             )
+-            continue
+-
+-        result = convert_domain(
+-            raw_dir,
+-            processed_dir,
+-            domain,
+-            profile=profile,
+-            timezone=timezone,
+-            users=users,
+-            start=start,
+-            end=end,
+-            force=force,
+         )
+-
+-        marker.write_text(
+-            json.dumps(result, indent=2, default=str),
+-            encoding="utf-8",
+-        )
+-
+-        results.append(result)
+-
+     return results
+ 
+ 
+ def main() -> None:
+-    p = argparse.ArgumentParser()
+-    p.add_argument("--raw-dir", required=True)
+-    p.add_argument("--processed-dir", required=True)
+-    p.add_argument("--timezone", default="UTC")
+-    p.add_argument("--start")
+-    p.add_argument("--end")
++    from app.core.runtime import apply_thread_caps
++
++    apply_thread_caps()
++    from .pipeline import PROFILE_CONFIG, _profile_users  # local import: avoids a cycle
++    from .context import build_context
++
++    p = argparse.ArgumentParser(description="CIRA Chapter 5 Stage 0 (CSV -> Parquet)")
++    p.add_argument("--raw-dir", default=os.getenv("CERT_RAW_DIR"), required=os.getenv("CERT_RAW_DIR") is None)
++    p.add_argument("--processed-dir", default=os.getenv("CERT_PROCESSED_DIR"), required=os.getenv("CERT_PROCESSED_DIR") is None)
++    p.add_argument("--ground-truth-dir", default=os.getenv("CERT_GROUND_TRUTH_DIR"))
++    p.add_argument("--profile", default=os.getenv("CIRA_PROFILE", "dev"), choices=tuple(PROFILE_CONFIG))
++    p.add_argument("--timezone", default=os.getenv("CERT_SOURCE_TIMEZONE", "UTC"))
++    p.add_argument("--domain", action="append", choices=DOMAINS, help="repeatable; default all")
+     p.add_argument("--force", action="store_true")
+     args = p.parse_args()
+-    results = run_stage0(args.raw_dir, args.processed_dir, timezone=args.timezone, start=args.start, end=args.end, force=args.force)
++
++    raw_dir, processed_dir = Path(args.raw_dir), Path(args.processed_dir)
++    cfg = PROFILE_CONFIG[args.profile]
++    build_context(raw_dir, processed_dir)
++    users = _profile_users(processed_dir, raw_dir, args.profile, ground_truth_dir=args.ground_truth_dir)
++    results = run_stage0(
++        raw_dir, processed_dir, profile=args.profile, timezone=args.timezone,
++        users=users, start=cfg["start"], end=cfg["end"], force=args.force,
++        domains=tuple(args.domain) if args.domain else DOMAINS,
++    )
+     print(json.dumps(results, indent=2, default=str))
+ 
++
+ if __name__ == "__main__":
+     main()
+diff --git a/backend/app/feature_engineering/temporal.py b/backend/app/feature_engineering/temporal.py
+index 9818a2e..abf4f4d 100644
+--- a/backend/app/feature_engineering/temporal.py
++++ b/backend/app/feature_engineering/temporal.py
+@@ -1,16 +1,84 @@
++"""Temporal features on the dense user-day spine.
++
++Must run AFTER the missing-value policy has been applied (counts are 0 on
++inactive days; hour columns stay null).  Absence is never turned into a
++clock time: a day with no logon has a null first_auth_hour and therefore
++null off-hours indicators, not "logged in at midnight".
++
++Rolling windows are trailing and exclude the current day (shift(1)), so a
++row never contributes to its own context.
++"""
+ from __future__ import annotations
++
+ import pandas as pd
+-from .common import off_hours
++
++from .common import OFF_HOURS_END, OFF_HOURS_START
++
++ACTIVITY_COUNT_COLUMNS = (
++    "auth_event_count",
++    "usb_event_count",
++    "file_event_count",
++    "emails_sent",
++    "http_request_count",
++)
++ROLLING_WINDOW = 7
++
++TEMPORAL_META = {
++    "day_of_week": {"null_policy": "never null"},
++    "is_weekend": {"null_policy": "never null"},
++    "total_event_count": {"null_policy": "zero: no observed events in any domain"},
++    "is_active_day": {"null_policy": "never null"},
++    "first_auth_off_hours": {"null_policy": "null: no logon that day"},
++    "last_auth_off_hours": {"null_policy": "null: no logon that day"},
++    "auth_active_span_hours": {"null_policy": "null: no logon that day"},
++    f"rolling_{ROLLING_WINDOW}d_event_count": {
++        "null_policy": "null until the first prior day exists",
++        "window_days": ROLLING_WINDOW,
++        "method": "trailing sum, current day excluded with shift(1)",
++    },
++    f"rolling_{ROLLING_WINDOW}d_active_days": {
++        "null_policy": "null until the first prior day exists",
++        "window_days": ROLLING_WINDOW,
++        "method": "trailing count of active days, current day excluded with shift(1)",
++    },
++}
++
++
++def _off_hours_nullable(hour: pd.Series) -> pd.Series:
++    h = hour.astype("float32")
++    flag = ((h < OFF_HOURS_START) | (h >= OFF_HOURS_END)).astype("float32")
++    return flag.where(h.notna())
++
+ 
+ def add_temporal(df: pd.DataFrame) -> pd.DataFrame:
+     out = df.copy()
+     out["date"] = pd.to_datetime(out["date"])
++    out = out.sort_values(["user_id", "date"]).reset_index(drop=True)
+     out["day_of_week"] = out["date"].dt.dayofweek.astype("int8")
+     out["is_weekend"] = (out["day_of_week"] >= 5).astype("int8")
+-    # Daily first/last active hour are sourced from authentication; keep them
+-    # separate and do not pretend every source has an independent login hour.
++
++    present = [c for c in ACTIVITY_COUNT_COLUMNS if c in out.columns]
++    total = out[present].fillna(0).sum(axis=1) if present else pd.Series(0, index=out.index)
++    out["total_event_count"] = total.astype("float32")
++    out["is_active_day"] = (total > 0).astype("int8")
++
+     if "first_auth_hour" in out:
+-        out["first_auth_off_hours"] = off_hours(out["first_auth_hour"].fillna(0)).astype("float32")
++        out["first_auth_off_hours"] = _off_hours_nullable(out["first_auth_hour"])
+     if "last_auth_hour" in out:
+-        out["last_auth_off_hours"] = off_hours(out["last_auth_hour"].fillna(0)).astype("float32")
++        out["last_auth_off_hours"] = _off_hours_nullable(out["last_auth_hour"])
++    if "first_auth_hour" in out and "last_auth_hour" in out:
++        out["auth_active_span_hours"] = (out["last_auth_hour"] - out["first_auth_hour"]).astype("float32")
++
++    by_user = out.groupby("user_id", sort=False, observed=True)
++    prior_total = by_user["total_event_count"].shift(1)
++    prior_active = by_user["is_active_day"].shift(1)
++    grp = out["user_id"]
++    out[f"rolling_{ROLLING_WINDOW}d_event_count"] = (
++        prior_total.groupby(grp, sort=False).rolling(ROLLING_WINDOW, min_periods=1).sum()
++        .reset_index(level=0, drop=True).astype("float32")
++    )
++    out[f"rolling_{ROLLING_WINDOW}d_active_days"] = (
++        prior_active.astype("float32").groupby(grp, sort=False).rolling(ROLLING_WINDOW, min_periods=1).sum()
++        .reset_index(level=0, drop=True).astype("float32")
++    )
+     return out
+diff --git a/backend/app/feature_engineering/usb.py b/backend/app/feature_engineering/usb.py
+index 5a93229..9a9342d 100644
+--- a/backend/app/feature_engineering/usb.py
++++ b/backend/app/feature_engineering/usb.py
+@@ -1,12 +1,24 @@
++"""Removable-media (device.csv) features per user-day.
++
++Chunk safety: counts sum; first/last hour combine by min/max;
++``usb_distinct_pcs`` is recomputed exactly by the pipeline.
++CERT r4.2 device.csv has no file-transfer linkage, so the Bible's
++"file-transfer association" is approximated only by same-day file activity
++in file_activity.py (r4.2 file.csv records copies to removable media).
++"""
+ from __future__ import annotations
++
+ import pandas as pd
++
+ from .common import off_hours, ratio
+ 
++
+ def aggregate(df: pd.DataFrame) -> pd.DataFrame:
+-    x = df.copy()
+-    x["connect"] = x["activity"].eq("connect")
+-    x["disconnect"] = x["activity"].eq("disconnect")
+-    x["off"] = off_hours(x["hour"])
++    x = df[["user_id", "date_day", "hour", "device_id", "activity", "event_id"]].copy()
++    x["connect"] = x["activity"].eq("connect").astype("int32")
++    x["disconnect"] = x["activity"].eq("disconnect").astype("int32")
++    x["off"] = off_hours(x["hour"]).astype("int32")
++    x["hour_f"] = x["hour"].astype("float32")
+     g = x.groupby(["user_id", "date_day"], observed=True)
+     out = g.agg(
+         usb_connect_count=("connect", "sum"),
+@@ -14,8 +26,8 @@ def aggregate(df: pd.DataFrame) -> pd.DataFrame:
+         usb_event_count=("event_id", "size"),
+         usb_distinct_pcs=("device_id", "nunique"),
+         usb_off_hours_events=("off", "sum"),
+-        usb_first_hour=("hour", "min"),
+-        usb_last_hour=("hour", "max"),
++        usb_first_hour=("hour_f", "min"),
++        usb_last_hour=("hour_f", "max"),
+     ).reset_index().rename(columns={"date_day": "date"})
+     out["usb_off_hours_ratio"] = ratio(out["usb_off_hours_events"], out["usb_event_count"])
+     return out
+diff --git a/backend/app/ingestion/ground_truth.py b/backend/app/ingestion/ground_truth.py
+index eb234ee..7daa7f7 100644
+--- a/backend/app/ingestion/ground_truth.py
++++ b/backend/app/ingestion/ground_truth.py
+@@ -517,4 +517,90 @@ def is_ground_truth_event(
+         if record_start <= timestamp <= record_end:
+             return True
+ 
+-    return False
+\ No newline at end of file
++    return False
++
++# ---------------------------------------------------------------------------
++# Event-level answer files -> evaluation label tables (HCEA §3.4)
++# ---------------------------------------------------------------------------
++# The r4.2 answer folders (r4.2-1/, r4.2-2/, r4.2-3/) hold one headerless CSV
++# per insider.  Every line is one malicious source event:
++#     <domain>, <event id>, <MM/DD/YYYY HH:MM:SS>, <user>, <pc>, ...
++# Trailing fields vary by domain (email/http carry content), so only the
++# first five fields are read.  These files are the precise event-level
++# ground truth; insiders.csv start/end windows are coarser and are NOT used
++# to label user-days.
++#
++# Output lives under <processed>/labels/, a tree the feature pipeline never
++# reads.  Labels are joined to features only inside the evaluation harness.
++
++R42_SCENARIO_DIRS = ("r4.2-1", "r4.2-2", "r4.2-3")
++
++
++def iter_r42_malicious_events(ground_truth_dir: str | Path) -> Iterator[dict[str, Any]]:
++    import csv
++
++    root = Path(ground_truth_dir)
++    found_any = False
++    for folder in R42_SCENARIO_DIRS:
++        scenario_dir = root / folder
++        if not scenario_dir.is_dir():
++            continue
++        scenario = int(folder.rsplit("-", 1)[1])
++        for path in sorted(scenario_dir.glob("*.csv")):
++            found_any = True
++            with path.open("r", encoding="utf-8", errors="replace", newline="") as handle:
++                for line_no, fields in enumerate(csv.reader(handle, skipinitialspace=True), start=1):
++                    if len(fields) < 4 or not fields[0].strip():
++                        continue
++                    ts = pd.to_datetime(fields[2].strip(), format=CERT_TIMESTAMP_FORMAT, errors="coerce")
++                    if pd.isna(ts):
++                        raise ValueError(f"Unparseable timestamp in {path.name}:{line_no}: {fields[2]!r}")
++                    yield {
++                        "domain": fields[0].strip().casefold(),
++                        "event_id": fields[1].strip(),
++                        "timestamp": ts,
++                        "user_id": fields[3].strip().casefold(),
++                        "device_id": fields[4].strip().casefold() if len(fields) > 4 else None,
++                        "scenario": scenario,
++                        "source_file": f"{folder}/{path.name}",
++                    }
++    if not found_any:
++        raise FileNotFoundError(
++            f"No r4.2 answer files under {root} (expected {', '.join(R42_SCENARIO_DIRS)})"
++        )
++
++
++def build_insider_label_tables(
++    ground_truth_dir: str | Path,
++    processed_dir: str | Path,
++) -> dict[str, Any]:
++    """Write labels/insider_events.parquet and labels/insider_user_days.parquet."""
++    events = pd.DataFrame(list(iter_r42_malicious_events(ground_truth_dir)))
++    events["date"] = events["timestamp"].dt.normalize()
++    events = events.drop_duplicates(["domain", "event_id"])
++
++    user_days = (
++        events.groupby(["user_id", "date"], as_index=False)
++        .agg(scenario=("scenario", "min"), n_malicious_events=("event_id", "size"))
++    )
++    user_days["is_malicious"] = 1
++    user_days["n_malicious_events"] = user_days["n_malicious_events"].astype("int32")
++    user_days["scenario"] = user_days["scenario"].astype("int8")
++    user_days["is_malicious"] = user_days["is_malicious"].astype("int8")
++
++    out = Path(processed_dir) / "labels"
++    out.mkdir(parents=True, exist_ok=True)
++    for frame, name in ((events, "insider_events.parquet"), (user_days, "insider_user_days.parquet")):
++        tmp = out / (name + ".tmp")
++        frame.to_parquet(tmp, index=False)
++        tmp.replace(out / name)
++
++    return {
++        "malicious_events": int(len(events)),
++        "insider_users": int(events["user_id"].nunique()),
++        "malicious_user_days": int(len(user_days)),
++        "users_per_scenario": {int(k): int(v) for k, v in events.groupby("scenario")["user_id"].nunique().items()},
++        "first_event": str(events["timestamp"].min()),
++        "last_event": str(events["timestamp"].max()),
++        "output_dir": str(out),
++    }
+diff --git a/backend/tests/conftest.py b/backend/tests/conftest.py
+new file mode 100644
+index 0000000..1770581
+--- /dev/null
++++ b/backend/tests/conftest.py
+@@ -0,0 +1,12 @@
++import sys
++from pathlib import Path
++
++import pytest
++
++sys.path.insert(0, str(Path(__file__).parent))
++
++
++@pytest.fixture(autouse=True)
++def _isolated_runlog(tmp_path, monkeypatch):
++    """Never let a test append to the real experiments/runlog.jsonl."""
++    monkeypatch.setenv("CIRA_RUNLOG", str(tmp_path / "runlog.jsonl"))
+diff --git a/backend/tests/fixtures/synthetic_cert.py b/backend/tests/fixtures/synthetic_cert.py
+new file mode 100644
+index 0000000..8be26f3
+--- /dev/null
++++ b/backend/tests/fixtures/synthetic_cert.py
+@@ -0,0 +1,80 @@
++"""Tiny synthetic CERT r4.2-shaped tree for fast Chapter 5 tests.
++
++Label-free except for the ground-truth folder, which mirrors the real
++layout (insiders.csv + r4.2-N/ answer files) so label tooling can be tested.
++"""
++from __future__ import annotations
++
++import random
++from pathlib import Path
++
++import pandas as pd
++
++HOSTS = ["google.com", "linkedin.com", "dropbox.com", "cnn.com", "wikipedia.org", "a.drive.google.com"]
++
++
++def build(root: Path, *, n_users: int = 12, start: str = "2010-01-04", end: str = "2010-02-12", seed: int = 3) -> dict[str, Path]:
++    raw = root / "raw" / "cert_r4.2"
++    gt = root / "ground_truth" / "cert_r4.2"
++    (raw / "LDAP").mkdir(parents=True, exist_ok=True)
++    (gt / "r4.2-1").mkdir(parents=True, exist_ok=True)
++    rng = random.Random(seed)
++    users = [f"U{i:04d}" for i in range(n_users)]
++    counter = [0]
++
++    def nid() -> str:
++        counter[0] += 1
++        return f"{{S{counter[0]:010d}}}"
++
++    def ts(day, hour) -> str:
++        return f"{day:%m/%d/%Y} {hour:02d}:{rng.randint(0, 59):02d}:{rng.randint(0, 59):02d}"
++
++    logon, device, file, email, http = [], [], [], [], []
++    for day in pd.date_range(start, end, freq="D"):
++        for u in users:
++            if day.dayofweek >= 5 or rng.random() < 0.15:
++                continue
++            pcs = [f"PC-{rng.randint(1, 60):04d}" for _ in range(rng.randint(1, 3))]
++            h0 = rng.choice([8, 9, 22])
++            logon.append((nid(), ts(day, h0), u, pcs[0], "Logon"))
++            logon.append((nid(), ts(day, min(h0 + 1, 23)), u, pcs[-1], "Logoff"))
++            for k in range(rng.randint(0, 3)):
++                pc = rng.choice(pcs)
++                device.append((nid(), ts(day, rng.randint(6, 21)), u, pc, "Connect"))
++                device.append((nid(), ts(day, 21), u, pc, "Disconnect"))
++                file.append((nid(), ts(day, rng.randint(6, 21)), u, pc, f"R:\\{u}\\f{k}.{rng.choice(['doc', 'zip', 'exe', 'pdf'])}", "x"))
++            email.append((nid(), ts(day, 10), u, pcs[0], f"{u.lower()}@dtaa.com;ext{rng.randint(1, 3)}@mail{rng.randint(1, 2)}.com", "", "", f"{u.lower()}@dtaa.com", rng.randint(1000, 5000), rng.randint(0, 2), "b"))
++            for k in range(rng.randint(3, 12)):
++                http.append((nid(), ts(day, rng.randint(7, 20)), u, pcs[0], f"http://{rng.choice(HOSTS)}/p{k}.html", "w"))
++
++    def write(name, rows, cols):
++        df = pd.DataFrame(rows, columns=cols)
++        order = pd.to_datetime(df["date"], format="%m/%d/%Y %H:%M:%S").argsort(kind="stable")
++        df.iloc[order].to_csv(raw / name, index=False)
++
++    write("logon.csv", logon, ["id", "date", "user", "pc", "activity"])
++    write("device.csv", device, ["id", "date", "user", "pc", "activity"])
++    write("file.csv", file, ["id", "date", "user", "pc", "filename", "content"])
++    write("email.csv", email, ["id", "date", "user", "pc", "to", "cc", "bcc", "from", "size", "attachments", "content"])
++    write("http.csv", http, ["id", "date", "user", "pc", "url", "content"])
++    pd.DataFrame({"employee_name": users, "user_id": users, "O": 30, "C": 31, "E": 32, "A": 33, "N": 34}).to_csv(raw / "psychometric.csv", index=False)
++    for month in ("2009-12", "2010-01", "2010-02"):
++        pd.DataFrame({
++            "employee_name": users, "user_id": users, "email": [f"{u.lower()}@dtaa.com" for u in users],
++            "role": "Eng", "business_unit": 1, "functional_unit": "1 - FU",
++            "department": [f"D{i % 2}" for i in range(n_users)], "team": "T", "supervisor": "Boss",
++        }).to_csv(raw / "LDAP" / f"{month}.csv", index=False)
++
++    pd.DataFrame({
++        "dataset": [4.2, 4.2, 4.2, 5.1], "scenario": [1, 1, 1, 1], "details": "x",
++        "user": [users[0], users[1], users[2], "ZZZ9999"],
++        "start": ["01/10/2010 00:00:00", "06/10/2010 00:00:00", "07/01/2010 00:00:00", "01/01/2010 00:00:00"],
++        "end": ["01/20/2010 00:00:00", "07/10/2010 00:00:00", "08/01/2010 00:00:00", "01/02/2010 00:00:00"],
++    }).to_csv(gt / "insiders.csv", index=False)
++    (gt / "r4.2-1" / f"r4.2-1-{users[0]}.csv").write_text(
++        f"logon,{{G1}},01/11/2010 22:01:02,{users[0]},PC-0001,Logon\n"
++        f"device,{{G2}},01/11/2010 22:05:00,{users[0]},PC-0001,Connect\n"
++        f"http,{{G3}},01/12/2010 23:00:00,{users[0]},PC-0001,http://wikileaks.org/x.html,some, words, here\n",
++        encoding="utf-8",
++    )
++    return {"raw": raw, "gt": gt, "users": users}
+diff --git a/backend/tests/unit/test_cert_loader_timestamp copy.py b/backend/tests/unit/test_cert_loader_timestamp copy.py
+deleted file mode 100644
+index 3e910d2..0000000
+--- a/backend/tests/unit/test_cert_loader_timestamp copy.py	
++++ /dev/null
+@@ -1,24 +0,0 @@
+-import pandas as pd
+-
+-from app.ingestion.cert_loader import _build_event
+-
+-
+-def test_cert_loader_parses_real_cert_timestamp():
+-    event = _build_event(
+-        domain="logon",
+-        source_file="logon.csv",
+-        row_number=1,
+-        row={
+-            "id": "L1",
+-            "date": "01/02/2010 06:49:00",
+-            "user": "UserA",
+-            "pc": "PC-1",
+-            "activity": "Logon",
+-        },
+-    )
+-
+-    assert event.timestamp == pd.Timestamp(
+-        "2010-01-02 06:49:00"
+-    ).to_pydatetime()
+-    assert event.event_id == "cert-r4.2:logon:L1"
+-    assert event.user_id == "UserA"
+diff --git a/backend/tests/unit/test_chapter5_pipeline.py b/backend/tests/unit/test_chapter5_pipeline.py
+new file mode 100644
+index 0000000..5ecb9f1
+--- /dev/null
++++ b/backend/tests/unit/test_chapter5_pipeline.py
+@@ -0,0 +1,209 @@
++"""Chapter 5 regression tests (end-to-end on a tiny synthetic CERT tree).
++
++Chunk sizes are forced small so user-days straddle Parquet parts, which is
++exactly what happens with the real 500k/1M-row chunks.  These tests cover
++the HCEA §5.5 acceptance items that can be checked without the real corpus:
++distinct counts vs brute force, resumability, null policy, schema, leakage.
++"""
++from __future__ import annotations
++
++import json
++import sys
++
++import numpy as np
++import pandas as pd
++import pytest
++
++import app.feature_engineering.stage0 as stage0
++from app.feature_engineering import pipeline
++from app.feature_engineering.pipeline import run_pipeline
++from fixtures import synthetic_cert
++
++
++@pytest.fixture(scope="module")
++def built(tmp_path_factory):
++    root = tmp_path_factory.mktemp("cert")
++    paths = synthetic_cert.build(root)
++    processed = root / "processed"
++    saved = dict(stage0.CHUNK_SIZES)
++    stage0.CHUNK_SIZES.update({k: 173 for k in saved})
++    mp = pytest.MonkeyPatch()
++    mp.setenv("CIRA_RUNLOG", str(root / "runlog.jsonl"))
++    try:
++        out = run_pipeline(paths["raw"], processed, profile="full")
++    finally:
++        stage0.CHUNK_SIZES.clear()
++        stage0.CHUNK_SIZES.update(saved)
++        mp.undo()
++    matrix = pd.read_parquet(out)
++    schema = json.loads((processed / "features" / "feature_schema.json").read_text())
++    return {**paths, "processed": processed, "matrix": matrix, "schema": schema, "root": root}
++
++
++def _brute(raw, name):
++    df = pd.read_csv(raw / name)
++    df["user_id"] = df["user"].str.casefold()
++    df["hour"] = df["date"].str[11:13].astype(int)
++    df["date"] = pd.to_datetime(df["date"].str[:10], format="%m/%d/%Y").dt.strftime("%Y-%m-%d")
++    return df
++
++
++def test_chunks_really_straddle_days(built):
++    parts = list((built["processed"] / "events" / "profile=full" / "source_type=device").rglob("*.parquet"))
++    assert len(parts) > 3
++
++
++@pytest.mark.parametrize(
++    "csv_name,column,item",
++    [
++        ("device.csv", "usb_distinct_pcs", "pc"),
++        ("file.csv", "file_distinct_pcs", "pc"),
++        ("logon.csv", "distinct_auth_pcs", "pc"),
++    ],
++)
++def test_distinct_counts_match_brute_force(built, csv_name, column, item):
++    ref = _brute(built["raw"], csv_name).groupby(["user_id", "date"])[item].nunique().rename("ref").reset_index()
++    j = built["matrix"].merge(ref, on=["user_id", "date"])
++    assert len(j) > 0
++    assert (j[column] == j["ref"]).all()
++
++
++def test_http_distinct_hosts_match_brute_force(built):
++    df = _brute(built["raw"], "http.csv")
++    df["host"] = df["url"].str.extract(r"://([^/]+)")[0]
++    ref = df.groupby(["user_id", "date"])["host"].nunique().rename("ref").reset_index()
++    j = built["matrix"].merge(ref, on=["user_id", "date"])
++    assert (j["http_distinct_hosts"] == j["ref"]).all()
++
++
++def test_first_last_hours_are_min_max_not_sums(built):
++    ref = _brute(built["raw"], "device.csv").groupby(["user_id", "date"])["hour"].agg(["min", "max"]).reset_index()
++    j = built["matrix"].merge(ref, on=["user_id", "date"])
++    assert (j["usb_first_hour"] == j["min"]).all()
++    assert (j["usb_last_hour"] == j["max"]).all()
++    assert built["matrix"][["usb_first_hour", "usb_last_hour", "first_auth_hour", "last_auth_hour"]].max().max() <= 23
++
++
++def test_inactive_days_are_null_not_midnight(built):
++    m = built["matrix"]
++    idle = m[m["login_count"] == 0]
++    assert len(idle) > 0
++    assert idle["first_auth_hour"].isna().all()
++    assert idle["first_auth_off_hours"].isna().all()
++    assert idle["off_hours_login_ratio"].isna().all()
++    assert (idle["login_count"] == 0).all()
++
++
++def test_host_category_counts(built):
++    df = _brute(built["raw"], "http.csv")
++    df["host"] = df["url"].str.extract(r"://([^/]+)")[0]
++    df["cloud"] = df["host"].isin(["dropbox.com", "a.drive.google.com"]).astype(int)
++    ref = df.groupby(["user_id", "date"])["cloud"].sum().rename("ref").reset_index()
++    j = built["matrix"].merge(ref, on=["user_id", "date"])
++    assert (j["http_cloud_storage_count"] == j["ref"]).all()
++
++
++def test_matrix_is_numeric_float32_and_label_free(built):
++    m = built["matrix"]
++    features = m.drop(columns=["user_id", "date"])
++    assert (features.dtypes == np.float32).all()
++    lowered = [c.lower() for c in m.columns]
++    for bad in ("label", "malicious", "insider", "scenario", "ground_truth"):
++        assert not any(bad in c for c in lowered)
++
++
++def test_schema_documents_every_column(built):
++    schema = built["schema"]
++    names = [c["name"] for c in schema["columns"]]
++    assert set(names) == set(built["matrix"].columns) - {"user_id", "date"}
++    for col in schema["columns"]:
++        assert col["dtype"]
++        assert col["source_domain"]
++        assert col["null_policy"] != "not applicable", col["name"]
++    hist = next(c for c in schema["columns"] if c["name"] == "hist_z_login_count")
++    assert hist["window_days"] == 30 and hist["min_periods"] == 7
++
++
++def test_peer_features_use_same_day_and_exclude_target(built):
++    m = built["matrix"]
++    assert m["peer_median_login_count"].notna().any()
++    assert (m["peer_department_size"].dropna() >= 0).all()
++
++
++def test_runlog_written(built):
++    lines = (built["root"] / "runlog.jsonl").read_text().strip().splitlines()
++    record = json.loads(lines[-1])
++    for key in ("profile", "rows_in", "rows_out", "wall_seconds", "peak_rss_mb", "config_fingerprint"):
++        assert key in record
++
++
++def test_stage0_resumes_after_a_crash(tmp_path, monkeypatch):
++    paths = synthetic_cert.build(tmp_path)
++    processed = tmp_path / "processed"
++    calls = {"n": 0}
++    real = stage0._canonical_domain_chunk
++
++    def flaky(domain, chunk, tz):
++        calls["n"] += 1
++        if calls["n"] == 4:
++            raise KeyboardInterrupt("simulated kill")
++        return real(domain, chunk, tz)
++
++    monkeypatch.setattr(stage0, "_canonical_domain_chunk", flaky)
++    with pytest.raises(KeyboardInterrupt):
++        stage0.convert_domain(paths["raw"], processed, "http", profile="full", chunksize=500)
++    done_before = len(list((processed / "_runlog" / "stage0_parts" / "full" / "http").glob("*.done")))
++    assert done_before == 3
++
++    monkeypatch.setattr(stage0, "_canonical_domain_chunk", real)
++    result = stage0.convert_domain(paths["raw"], processed, "http", profile="full", chunksize=500)
++    assert result["chunks_skipped"] == 3
++    assert result["rows_written"] == len(pd.read_csv(paths["raw"] / "http.csv"))
++    written = sum(len(pd.read_parquet(p)) for p in (processed / "events" / "profile=full" / "source_type=http").rglob("*.parquet"))
++    assert written == result["rows_written"]
++
++
++def test_stage0_rejects_malformed_rows_with_reason(tmp_path):
++    raw = tmp_path / "raw"
++    raw.mkdir()
++    pd.DataFrame({
++        "id": ["{A}", "{B}", "{C}", "{C}", ""],
++        "date": ["01/04/2010 08:00:00", "not a date", "01/04/2010 09:00:00", "01/04/2010 09:00:00", "01/04/2010 10:00:00"],
++        "user": ["U1", "U1", "U1", "U1", "U1"],
++        "pc": ["PC-1"] * 5,
++        "activity": ["Logon"] * 5,
++    }).to_csv(raw / "logon.csv", index=False)
++    result = stage0.convert_domain(raw, tmp_path / "p", "logon", profile="full")
++    assert result["rows_written"] == 2
++    assert result["rows_rejected"] == 3
++    rej = pd.concat(pd.read_parquet(p) for p in (tmp_path / "p" / "rejected").rglob("*.parquet"))
++    assert sorted(rej["reason_code"]) == ["duplicate_event", "missing_event_id", "unparseable_timestamp"]
++
++
++def test_stage0_cli_runs(tmp_path, monkeypatch):
++    paths = synthetic_cert.build(tmp_path)
++    monkeypatch.setattr(sys, "argv", [
++        "stage0", "--raw-dir", str(paths["raw"]), "--processed-dir", str(tmp_path / "p"),
++        "--profile", "full", "--domain", "logon",
++    ])
++    stage0.main()
++    assert list((tmp_path / "p" / "events" / "profile=full" / "source_type=logon").rglob("*.parquet"))
++
++
++def test_dev_profile_only_picks_insiders_active_in_window(tmp_path, monkeypatch):
++    paths = synthetic_cert.build(tmp_path)
++    processed = tmp_path / "p"
++    from app.feature_engineering.context import build_context
++
++    build_context(paths["raw"], processed)
++    monkeypatch.setitem(pipeline.PROFILE_CONFIG, "dev", {**pipeline.PROFILE_CONFIG["dev"], "insiders": 2, "benign": 3})
++    users = pipeline._profile_users(processed, paths["raw"], "dev", ground_truth_dir=paths["gt"])
++    insiders_in_window = {paths["users"][1].casefold(), paths["users"][2].casefold()}
++    assert insiders_in_window <= users
++    assert paths["users"][0].casefold() not in users   # its window is Jan 2010
++    assert "zzz9999" not in users                       # r5.1 row ignored
++    assert len(users) == 5
++
++    monkeypatch.setitem(pipeline.PROFILE_CONFIG, "dev", {**pipeline.PROFILE_CONFIG["dev"], "insiders": 3})
++    with pytest.raises(RuntimeError, match="needs 3 insiders"):
++        pipeline._profile_users(processed, paths["raw"], "dev", ground_truth_dir=paths["gt"])
+diff --git a/backend/tests/unit/test_feature_units_ch5.py b/backend/tests/unit/test_feature_units_ch5.py
+new file mode 100644
+index 0000000..339791b
+--- /dev/null
++++ b/backend/tests/unit/test_feature_units_ch5.py
+@@ -0,0 +1,136 @@
++"""Unit tests for Chapter 5 sub-domains that previously had none."""
++import numpy as np
++import pandas as pd
++
++from app.feature_engineering import application, file_activity, temporal
++from app.feature_engineering.common import categorize_hosts, combine_rule
++from app.feature_engineering.network import aggregate as http_aggregate
++from app.feature_engineering.peer_group import add_peer_features, leave_one_out_median
++
++
++def _rows(**extra):
++    base = {
++        "event_id": ["1", "2", "3"],
++        "date_day": pd.to_datetime(["2010-01-04"] * 3),
++        "hour": [8, 20, 9],
++        "weekday": [0, 0, 0],
++        "user_id": ["u1"] * 3,
++        "device_id": ["pc1", "pc2", "pc1"],
++    }
++    base.update(extra)
++    return pd.DataFrame(base)
++
++
++def test_file_activity_extension_counts_and_off_hours():
++    out = file_activity.aggregate(_rows(file_extension=["zip", "exe", "weird"]))
++    row = out.iloc[0]
++    assert row.file_event_count == 3
++    assert row.file_zip_count == 1 and row.file_exe_count == 1
++    assert row.file_other_ext_count == 1
++    assert row.file_archive_or_executable_count == 2
++    assert row.file_off_hours_events == 1
++    assert row.file_distinct_pcs == 2
++
++
++def test_application_family_emits_no_fabricated_columns():
++    out = application.aggregate(pd.DataFrame())
++    assert list(out.columns) == ["user_id", "date"]
++    assert out.empty
++
++
++def test_temporal_nulls_absence_and_rolls_without_current_day():
++    df = pd.DataFrame({
++        "user_id": ["u1"] * 4,
++        "date": pd.date_range("2010-01-01", periods=4),
++        "first_auth_hour": [8.0, np.nan, 22.0, 9.0],
++        "last_auth_hour": [17.0, np.nan, 23.0, 9.0],
++        "auth_event_count": [2, 0, 2, 1],
++        "http_request_count": [5, 0, 0, 3],
++    })
++    out = temporal.add_temporal(df)
++    assert out["first_auth_off_hours"].tolist()[0] == 0
++    assert np.isnan(out["first_auth_off_hours"].tolist()[1])
++    assert out["first_auth_off_hours"].tolist()[2] == 1
++    assert out["total_event_count"].tolist() == [7, 0, 2, 4]
++    assert out["is_active_day"].tolist() == [1, 0, 1, 1]
++    rolled = out["rolling_7d_event_count"].tolist()
++    assert np.isnan(rolled[0])                   # no prior day
++    assert rolled[1] == 7 and rolled[3] == 9     # current day excluded
++    assert out["auth_active_span_hours"].tolist()[0] == 9
++
++
++def test_combine_rules():
++    assert combine_rule("usb_first_hour") == "min"
++    assert combine_rule("first_auth_hour") == "min"
++    assert combine_rule("usb_last_hour") == "max"
++    assert combine_rule("http_x_flag") == "max"
++    assert combine_rule("login_count") == "sum"
++
++
++def test_host_categories_match_exact_or_subdomain_only():
++    hosts = pd.Series(["drive.google.com", "x.drive.google.com", "google.com", "notdropbox.com", "dropbox.com"])
++    flags = categorize_hosts(hosts, {"cloud": ("drive.google.com", "dropbox.com")})
++    assert flags["cloud"].tolist() == [1, 1, 0, 0, 1]
++
++
++def test_http_category_counts_are_additive_columns():
++    df = _rows(host=["dropbox.com", "cnn.com", "dropbox.com"])
++    out = http_aggregate(df, {"cloud_storage": ("dropbox.com",)})
++    assert out.iloc[0].http_cloud_storage_count == 2
++    assert out.iloc[0].http_request_count == 3
++
++
++def test_leave_one_out_median_matches_brute_force():
++    rng = np.random.default_rng(0)
++    for _ in range(50):
++        n = int(rng.integers(1, 25))
++        v = pd.Series(rng.integers(0, 5, n).astype(float))
++        g = pd.Series(rng.integers(0, 3, n))
++        got = leave_one_out_median(v, g)
++        for i in range(n):
++            peers = v[(g == g[i]) & (v.index != i)]
++            exp = peers.median() if len(peers) else np.nan
++            assert (np.isnan(exp) and np.isnan(got[i])) or np.isclose(exp, got[i])
++
++
++def test_peer_group_compares_same_day_not_whole_month():
++    # u2's huge value on Jan 20 must not affect u1's Jan 10 peer median.
++    df = pd.DataFrame({
++        "user_id": ["u1", "u2", "u1", "u2"],
++        "date": pd.to_datetime(["2010-01-10", "2010-01-10", "2010-01-20", "2010-01-20"]),
++        "login_count": [1.0, 2.0, 1.0, 999.0],
++    })
++    ldap = pd.DataFrame({
++        "user_id": ["u1", "u2"], "department": ["d", "d"], "functional_unit": ["f", "f"],
++        "snapshot_month": pd.to_datetime(["2010-01-01", "2010-01-01"]),
++    })
++    out, _ = add_peer_features(df, ldap)
++    jan10_u1 = out[(out.user_id == "u1") & (out.date == "2010-01-10")].iloc[0]
++    assert jan10_u1.peer_median_login_count == 2.0
++
++
++def test_peer_group_separates_same_department_name_in_other_functional_unit():
++    df = pd.DataFrame({
++        "user_id": ["u1", "u2"], "date": pd.to_datetime(["2010-01-10"] * 2), "login_count": [1.0, 5.0],
++    })
++    ldap = pd.DataFrame({
++        "user_id": ["u1", "u2"], "department": ["1 - Sales", "1 - Sales"], "functional_unit": ["A", "B"],
++        "snapshot_month": pd.to_datetime(["2010-01-01"] * 2),
++    })
++    out, _ = add_peer_features(df, ldap)
++    assert out["peer_median_login_count"].isna().all()
++
++
++def test_feature_package_never_imports_ground_truth():
++    import ast
++    from pathlib import Path
++
++    import app.feature_engineering as fe
++
++    for path in Path(fe.__file__).parent.glob("*.py"):
++        tree = ast.parse(path.read_text(encoding="utf-8"))
++        for node in ast.walk(tree):
++            if isinstance(node, ast.ImportFrom):
++                assert "ground_truth" not in (node.module or ""), path.name
++            if isinstance(node, ast.Import):
++                assert all("ground_truth" not in a.name for a in node.names), path.name
+diff --git a/backend/tests/unit/test_ground_truth_r42 copy.py b/backend/tests/unit/test_ground_truth_r42 copy.py
+deleted file mode 100644
+index c53028b..0000000
+--- a/backend/tests/unit/test_ground_truth_r42 copy.py	
++++ /dev/null
+@@ -1,76 +0,0 @@
+-from datetime import timezone
+-
+-import pandas as pd
+-
+-from app.ingestion.ground_truth import (
+-    _parse_dataframe,
+-    build_user_label_index,
+-    is_ground_truth_event,
+-)
+-
+-
+-def _frame():
+-    return pd.DataFrame(
+-        [
+-            {
+-                "user": "UserA",
+-                "start": "01/02/2010 06:49:00",
+-                "end": "01/02/2010 08:49:00",
+-                "scenario": "1",
+-                "dataset": "4.2",
+-            },
+-            {
+-                "user": "UserB",
+-                "start": "01/02/2010 06:49:00",
+-                "end": "01/02/2010 08:49:00",
+-                "scenario": "1",
+-                "dataset": "4.1",
+-            },
+-        ]
+-    )
+-
+-
+-def test_ground_truth_is_scoped_to_r42_and_user_ids_normalized():
+-    records = _parse_dataframe(
+-        _frame(),
+-        source_file="insiders.csv",
+-    )
+-
+-    assert len(records) == 1
+-    assert records[0].dataset == "4.2"
+-    assert records[0].user_id == "usera"
+-
+-
+-def test_ground_truth_timestamps_are_utc_aware():
+-    records = _parse_dataframe(
+-        _frame(),
+-        source_file="insiders.csv",
+-    )
+-
+-    assert records[0].start.tzinfo == timezone.utc
+-    assert records[0].end.tzinfo == timezone.utc
+-
+-
+-def test_ground_truth_join_normalizes_user_and_timestamp():
+-    records = _parse_dataframe(
+-        _frame(),
+-        source_file="insiders.csv",
+-    )
+-
+-    assert is_ground_truth_event(
+-        user_id="USERA",
+-        timestamp="01/02/2010 07:00:00",
+-        records=records,
+-    )
+-
+-
+-def test_ground_truth_index_uses_normalized_ids():
+-    records = _parse_dataframe(
+-        _frame(),
+-        source_file="insiders.csv",
+-    )
+-
+-    index = build_user_label_index(records)
+-
+-    assert "usera" in index
+-    assert "USERA" not in index
+diff --git a/backend/tests/unit/test_label_tables.py b/backend/tests/unit/test_label_tables.py
+new file mode 100644
+index 0000000..fa9879f
+--- /dev/null
++++ b/backend/tests/unit/test_label_tables.py
+@@ -0,0 +1,29 @@
++"""Evaluation label tables are built from event-level answer files only."""
++import pandas as pd
++import pytest
++
++from app.ingestion.ground_truth import build_insider_label_tables
++from fixtures import synthetic_cert
++
++
++def test_label_tables_from_answer_files(tmp_path):
++    paths = synthetic_cert.build(tmp_path)
++    summary = build_insider_label_tables(paths["gt"], tmp_path / "processed")
++    assert summary["malicious_events"] == 3
++    assert summary["insider_users"] == 1
++    days = pd.read_parquet(tmp_path / "processed" / "labels" / "insider_user_days.parquet")
++    assert sorted(days["date"].dt.strftime("%Y-%m-%d")) == ["2010-01-11", "2010-01-12"]
++    assert set(days.columns) == {"user_id", "date", "scenario", "n_malicious_events", "is_malicious"}
++    assert days["user_id"].unique().tolist() == [paths["users"][0].casefold()]
++
++
++def test_label_tables_live_outside_feature_tree(tmp_path):
++    paths = synthetic_cert.build(tmp_path)
++    summary = build_insider_label_tables(paths["gt"], tmp_path / "processed")
++    assert summary["output_dir"].endswith("labels")
++    assert not (tmp_path / "processed" / "features").exists()
++
++
++def test_missing_answer_folders_fail_loudly(tmp_path):
++    with pytest.raises(FileNotFoundError):
++        build_insider_label_tables(tmp_path, tmp_path / "out")
+diff --git a/backend/tests/unit/test_ldap_snapshot_month copy.py b/backend/tests/unit/test_ldap_snapshot_month copy.py
+deleted file mode 100644
+index f566d50..0000000
+--- a/backend/tests/unit/test_ldap_snapshot_month copy.py	
++++ /dev/null
+@@ -1,18 +0,0 @@
+-from app.ingestion.cert_loader import _build_event
+-
+-
+-def test_ldap_snapshot_month_is_propagated():
+-    event = _build_event(
+-        domain="ldap",
+-        source_file="LDAP/2010-03.csv",
+-        row_number=1,
+-        row={
+-            "user_id": "UserA",
+-            "date": "03/01/2010 00:00:00",
+-            "role": "Employee",
+-        },
+-        snapshot_month="2010-03",
+-    )
+-
+-    assert event.metadata["snapshot_month"] == "2010-03"
+-    assert event.metadata["source_file"] == "LDAP/2010-03.csv"
+diff --git a/backend/tests/unit/test_normalize_cert_timestamp copy.py b/backend/tests/unit/test_normalize_cert_timestamp copy.py
+deleted file mode 100644
+index e6cb72c..0000000
+--- a/backend/tests/unit/test_normalize_cert_timestamp copy.py	
++++ /dev/null
+@@ -1,16 +0,0 @@
+-from datetime import datetime, timezone
+-
+-from app.preprocessing.normalize import normalize_timestamp
+-
+-
+-def test_chapter4_normalizer_accepts_real_cert_timestamp():
+-    result = normalize_timestamp(
+-        "01/02/2010 06:49:00",
+-        source_timezone="UTC",
+-        target_timezone="UTC",
+-    )
+-
+-    assert result == datetime(
+-        2010, 1, 2, 6, 49, 0, tzinfo=timezone.utc
+-    )
+-    assert result.tzinfo is not None
+diff --git a/docs/audits/chapter_1_5_audit.md b/docs/audits/chapter_1_5_audit.md
+new file mode 100644
+index 0000000..02e3485
+--- /dev/null
++++ b/docs/audits/chapter_1_5_audit.md
+@@ -0,0 +1,59 @@
++# Chapter 1-5 audit (24 September 2026)
++
++Scope: repository state at commit `d3bb41f` checked against the
++Implementation Bible (Chapters 1-5) and HCEA v1.0 (§2 standing rules, §3-5).
++Evidence: code reading, the existing test suite, and an end-to-end run of the
++Chapter 5 pipeline on a synthetic CERT-shaped tree with small chunk sizes,
++compared column by column against brute-force values computed from the raw
++CSVs.
++
++## Result before fixes
++
++Chapters 1-4: pass. Chapter 5: not accepted. Existing tests passed (58/58)
++but only exercised single-chunk inputs, which is where the defects hide.
++
++## Defects found and fixed
++
++| # | Defect | Evidence | Fix |
++|---|---|---|---|
++| 1 | `usb_distinct_pcs`, `file_distinct_pcs` summed across Parquet parts (the HCEA §5.3 chunk-safety bug) | 213 of 2,563 user-days wrong on synthetic run; max 5 vs true max 3 | Exact counts from globally deduplicated (user, day, item) triples |
++| 2 | `usb_first_hour` / `usb_last_hour` summed across parts | Values up to 42 (not a clock hour) | Per-column combine rules: min/max for hours, max for flags, sum only for additive columns |
++| 3 | Inactive days treated as a midnight logon: `first_auth_hour` filled with 0, so `first_auth_off_hours` = 1 on every no-login day | 1,423 of 1,423 idle days flagged off-hours | Hour columns stay null; off-hours flags null when there was no logon |
++| 4 | Ratios zero-filled on days with no denominator; schema recorded "zero" | `off_hours_login_ratio` = 0 on idle days | Ratios null (undefined); schema null_policy states this |
++| 5 | Peer median pooled over the whole month (includes peers' future days) and ran a per-row Python loop | ~3-4 ms/row measured, tens of minutes at full scale | Same-day peer groups (functional_unit + department), exact leave-one-out median, vectorised: 450k rows in 0.15 s, verified against brute force |
++| 6 | No HTTP host-class features; `DEFAULT_HOST_CATEGORIES` empty (HCEA §5.2 requires a committed expert list) | No host-class columns | `network_domains.py` draft list (job search, cloud storage, leak/paste, hacking tools) + label-blind `scripts/http_host_inventory.py` for review |
++| 7 | Stage 0 CLI crashed (`run_stage0()` missing `profile`) | TypeError on the documented command | CLI fixed, profile/env aware |
++| 8 | Stage 0 resumable only per whole domain, not per part (HCEA R7, §5.2) | A crash mid-http restarts http from zero | Per-chunk `.done` markers; config fingerprint invalidates stale outputs; tested by a simulated kill |
++| 9 | One malformed timestamp aborted the run (`errors="raise"`); no rejected sink in Stage 0 (Bible Ch4 rule) | Code | Malformed rows go to `processed/rejected/` with a reason code |
++| 10 | Dev profile window Jan-Apr 2010 precedes all r4.2 insider activity (earliest answer-file events seen: June 2010) | Answer-file dates | Dev window Jun-Aug 2010; dev insiders chosen from those active in the window; fails loudly if fewer than 10 |
++| 11 | No evaluation label tables (`labels/insider_user_days.parquet`, HCEA §3.4) | Missing | `build_insider_label_tables()` in the ground-truth module (event-level answer files) + `scripts/build_labels.py`; feature package statically barred from importing it |
++| 12 | Email size/attachments zero-filled when missing | Code | Kept null |
++| 13 | HCEA §17 variables absent from config and `.env.example`; `.env` path depended on CWD | Code | Added; path resolved from the repo root |
++| 14 | No thread caps (R6), runlog lacked rows/config hash (R8) | Code | `app/core/runtime.py`; `experiments/runlog.jsonl` summary per run |
++| 15 | Four duplicated `* copy.py` test files; empty README; no tests for file_activity, temporal, application, stage0, pipeline | Repo | Removed / written / added (80 tests pass) |
++
++Added features along the way: `email_distinct_external_domains`, temporal
++rolling 7-day activity and active-day counts, `auth_active_span_hours`,
++`total_event_count`, static psychometric (OCEAN) context columns.
++
++## Documented deviations (not silent)
++
++- Stage 0 applies the Chapter 4 policy vectorised per chunk rather than
++  calling the per-event Pydantic path, which would be too slow at 3.2x10^7
++  rows. Duplicate ids are rejected within a chunk; CERT ids are unique per
++  domain, so a multi-GB global id set is not built.
++- CERT r4.2 has no failed logins, source IPs, byte counts, file
++  create/modify/delete, or application/process logs. Those Architecture §10
++  sub-features are omitted, not fabricated; `application.py` emits no columns.
++- The feature matrix contains nulls by design. Chapter 6 must impute with a
++  policy fitted on the training split only.
++
++## Still required on the real dataset (cannot be verified in review)
++
++1. Review `network_domains.py` against `scripts/http_host_inventory.py`
++   output, by host category only, never by who visited a host.
++2. Run `scripts/build_labels.py`; confirm 7,323 events and 70 users.
++3. Run the pipeline at dev, then mid; record wall-clock and peak RSS.
++   HCEA §5.5 targets: dev under ~2 minutes, full-pipeline peak RSS under 12 GB.
++4. Kill the http stage mid-run once at mid and confirm it resumes (HCEA §5.5).
++5. Save `experiments/dataset_inventory.txt` (HCEA §3.2) and commit it.
+diff --git a/scripts/build_labels.py b/scripts/build_labels.py
+new file mode 100644
+index 0000000..cb16292
+--- /dev/null
++++ b/scripts/build_labels.py
+@@ -0,0 +1,46 @@
++"""Build CERT r4.2 evaluation label tables (evaluation-only, HCEA §3.4).
++
++Writes <CERT_PROCESSED_DIR>/labels/insider_events.parquet and
++insider_user_days.parquet from the event-level answer files in
++<CERT_GROUND_TRUTH_DIR>/r4.2-{1,2,3}/.  The feature pipeline never reads this
++tree; labels are joined to features only inside the Chapter 6+ evaluation code.
++
++Usage (from the repo root, with .env loaded or flags given):
++    python scripts/build_labels.py
++    python scripts/build_labels.py --ground-truth-dir D:/CIRA_dataset/datasets/ground_truth/cert_r4.2 \
++                                   --processed-dir   D:/CIRA_dataset/datasets/processed
++"""
++from __future__ import annotations
++
++import argparse
++import json
++import os
++import sys
++from pathlib import Path
++
++sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
++
++from app.ingestion.ground_truth import build_insider_label_tables  # noqa: E402
++
++EXPECTED_EVENTS = 7_323   # Bible Chapter 3 / HCEA §3.2 (released r4.2 ground truth)
++EXPECTED_USERS = 70
++
++
++def main() -> None:
++    p = argparse.ArgumentParser()
++    p.add_argument("--ground-truth-dir", default=os.getenv("CERT_GROUND_TRUTH_DIR"), required=os.getenv("CERT_GROUND_TRUTH_DIR") is None)
++    p.add_argument("--processed-dir", default=os.getenv("CERT_PROCESSED_DIR"), required=os.getenv("CERT_PROCESSED_DIR") is None)
++    args = p.parse_args()
++    summary = build_insider_label_tables(args.ground_truth_dir, args.processed_dir)
++    summary["expected_events"] = EXPECTED_EVENTS
++    summary["expected_users"] = EXPECTED_USERS
++    summary["matches_published_counts"] = (
++        summary["malicious_events"] == EXPECTED_EVENTS and summary["insider_users"] == EXPECTED_USERS
++    )
++    print(json.dumps(summary, indent=2))
++    if not summary["matches_published_counts"]:
++        print("WARNING: counts differ from the published r4.2 figures; investigate before Chapter 6.", file=sys.stderr)
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/scripts/http_host_inventory.py b/scripts/http_host_inventory.py
+new file mode 100644
+index 0000000..9f72b98
+--- /dev/null
++++ b/scripts/http_host_inventory.py
+@@ -0,0 +1,58 @@
++"""Label-blind HTTP host inventory for reviewing network_domains.py.
++
++Reads ONLY the Stage 0 Parquet tree (never ground truth) and writes the most
++frequent hosts with request and user counts, plus the category each host
++currently falls into.  Review categories against this list by what a host
++*is*, never by who visited it.
++
++Usage:
++    python scripts/http_host_inventory.py --profile mid --top 500
++Output: experiments/http_host_inventory_<profile>.csv
++"""
++from __future__ import annotations
++
++import argparse
++import os
++import sys
++from pathlib import Path
++
++import pandas as pd
++
++ROOT = Path(__file__).resolve().parents[1]
++sys.path.insert(0, str(ROOT / "backend"))
++
++from app.feature_engineering.common import host_matches  # noqa: E402
++from app.feature_engineering.network_domains import HOST_CATEGORIES  # noqa: E402
++
++
++def main() -> None:
++    p = argparse.ArgumentParser()
++    p.add_argument("--processed-dir", default=os.getenv("CERT_PROCESSED_DIR"), required=os.getenv("CERT_PROCESSED_DIR") is None)
++    p.add_argument("--profile", default=os.getenv("CIRA_PROFILE", "dev"))
++    p.add_argument("--top", type=int, default=500)
++    args = p.parse_args()
++
++    root = Path(args.processed_dir) / "events" / f"profile={args.profile}" / "source_type=http"
++    requests: dict[str, int] = {}
++    users: dict[str, set] = {}
++    for path in sorted(root.rglob("*.parquet")):
++        df = pd.read_parquet(path, columns=["user_id", "host"])
++        for host, n in df["host"].value_counts().items():
++            requests[host] = requests.get(host, 0) + int(n)
++        for host, grp in df.groupby("host", observed=True)["user_id"]:
++            users.setdefault(host, set()).update(grp.unique())
++
++    table = pd.DataFrame({"host": list(requests), "requests": list(requests.values())})
++    table["distinct_users"] = table["host"].map(lambda h: len(users.get(h, ())))
++    table["category"] = table["host"].map(
++        lambda h: ",".join(name for name, sfx in HOST_CATEGORIES.items() if host_matches(h, sfx)) or ""
++    )
++    table = table.sort_values("requests", ascending=False).head(args.top)
++    out = ROOT / "experiments" / f"http_host_inventory_{args.profile}.csv"
++    out.parent.mkdir(parents=True, exist_ok=True)
++    table.to_csv(out, index=False)
++    print(f"wrote {len(table)} hosts -> {out}")
++
++
++if __name__ == "__main__":
++    main()
+-- 
+2.43.0
+

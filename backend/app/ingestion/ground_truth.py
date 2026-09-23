@@ -518,3 +518,89 @@ def is_ground_truth_event(
             return True
 
     return False
+
+# ---------------------------------------------------------------------------
+# Event-level answer files -> evaluation label tables (HCEA §3.4)
+# ---------------------------------------------------------------------------
+# The r4.2 answer folders (r4.2-1/, r4.2-2/, r4.2-3/) hold one headerless CSV
+# per insider.  Every line is one malicious source event:
+#     <domain>, <event id>, <MM/DD/YYYY HH:MM:SS>, <user>, <pc>, ...
+# Trailing fields vary by domain (email/http carry content), so only the
+# first five fields are read.  These files are the precise event-level
+# ground truth; insiders.csv start/end windows are coarser and are NOT used
+# to label user-days.
+#
+# Output lives under <processed>/labels/, a tree the feature pipeline never
+# reads.  Labels are joined to features only inside the evaluation harness.
+
+R42_SCENARIO_DIRS = ("r4.2-1", "r4.2-2", "r4.2-3")
+
+
+def iter_r42_malicious_events(ground_truth_dir: str | Path) -> Iterator[dict[str, Any]]:
+    import csv
+
+    root = Path(ground_truth_dir)
+    found_any = False
+    for folder in R42_SCENARIO_DIRS:
+        scenario_dir = root / folder
+        if not scenario_dir.is_dir():
+            continue
+        scenario = int(folder.rsplit("-", 1)[1])
+        for path in sorted(scenario_dir.glob("*.csv")):
+            found_any = True
+            with path.open("r", encoding="utf-8", errors="replace", newline="") as handle:
+                for line_no, fields in enumerate(csv.reader(handle, skipinitialspace=True), start=1):
+                    if len(fields) < 4 or not fields[0].strip():
+                        continue
+                    ts = pd.to_datetime(fields[2].strip(), format=CERT_TIMESTAMP_FORMAT, errors="coerce")
+                    if pd.isna(ts):
+                        raise ValueError(f"Unparseable timestamp in {path.name}:{line_no}: {fields[2]!r}")
+                    yield {
+                        "domain": fields[0].strip().casefold(),
+                        "event_id": fields[1].strip(),
+                        "timestamp": ts,
+                        "user_id": fields[3].strip().casefold(),
+                        "device_id": fields[4].strip().casefold() if len(fields) > 4 else None,
+                        "scenario": scenario,
+                        "source_file": f"{folder}/{path.name}",
+                    }
+    if not found_any:
+        raise FileNotFoundError(
+            f"No r4.2 answer files under {root} (expected {', '.join(R42_SCENARIO_DIRS)})"
+        )
+
+
+def build_insider_label_tables(
+    ground_truth_dir: str | Path,
+    processed_dir: str | Path,
+) -> dict[str, Any]:
+    """Write labels/insider_events.parquet and labels/insider_user_days.parquet."""
+    events = pd.DataFrame(list(iter_r42_malicious_events(ground_truth_dir)))
+    events["date"] = events["timestamp"].dt.normalize()
+    events = events.drop_duplicates(["domain", "event_id"])
+
+    user_days = (
+        events.groupby(["user_id", "date"], as_index=False)
+        .agg(scenario=("scenario", "min"), n_malicious_events=("event_id", "size"))
+    )
+    user_days["is_malicious"] = 1
+    user_days["n_malicious_events"] = user_days["n_malicious_events"].astype("int32")
+    user_days["scenario"] = user_days["scenario"].astype("int8")
+    user_days["is_malicious"] = user_days["is_malicious"].astype("int8")
+
+    out = Path(processed_dir) / "labels"
+    out.mkdir(parents=True, exist_ok=True)
+    for frame, name in ((events, "insider_events.parquet"), (user_days, "insider_user_days.parquet")):
+        tmp = out / (name + ".tmp")
+        frame.to_parquet(tmp, index=False)
+        tmp.replace(out / name)
+
+    return {
+        "malicious_events": int(len(events)),
+        "insider_users": int(events["user_id"].nunique()),
+        "malicious_user_days": int(len(user_days)),
+        "users_per_scenario": {int(k): int(v) for k, v in events.groupby("scenario")["user_id"].nunique().items()},
+        "first_event": str(events["timestamp"].min()),
+        "last_event": str(events["timestamp"].max()),
+        "output_dir": str(out),
+    }

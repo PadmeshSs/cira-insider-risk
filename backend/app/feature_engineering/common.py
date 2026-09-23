@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import time
 from pathlib import Path
 from typing import Iterable
@@ -153,14 +152,15 @@ def memory_rss_mb() -> float:
 
     return float(value / (1024 ** 2))
 
-def timed_stage(name: str, runlog: Path):
-    return _StageTimer(name, runlog)
+def timed_stage(name: str, runlog: Path, **extra):
+    return _StageTimer(name, runlog, extra)
 
 
 class _StageTimer:
-    def __init__(self, name: str, runlog: Path):
+    def __init__(self, name: str, runlog: Path, extra: dict | None = None):
         self.name = name
         self.runlog = runlog
+        self.extra = dict(extra or {})
         self.started = 0.0
         self.peak = 0.0
 
@@ -176,6 +176,7 @@ class _StageTimer:
             "wall_seconds": round(time.perf_counter() - self.started, 3),
             "peak_rss_mb": round(self.peak, 2),
             "status": "failed" if exc else "completed",
+            **self.extra,
         }
         self.runlog.parent.mkdir(parents=True, exist_ok=True)
         with self.runlog.open("a", encoding="utf-8") as fh:
@@ -190,3 +191,73 @@ def ensure_pyarrow() -> None:
         raise RuntimeError(
             "Chapter 5 requires pyarrow for Parquet I/O. Add pyarrow to backend/requirements.txt."
         ) from exc
+
+
+# ---------------------------------------------------------------------------
+# Chunk-safe combination of per-part aggregates (HCEA §5.3)
+# ---------------------------------------------------------------------------
+# Per-part aggregates are combined with a per-column rule.  Only additive
+# columns may be summed.  Distinct counts are NEVER combined here: they are
+# recomputed exactly from deduplicated (user, day, item) triples.
+
+def combine_rule(column: str) -> str:
+    """Return the correct cross-part reducer for an aggregate column."""
+    if column.endswith(("_first_hour",)) or column == "first_auth_hour":
+        return "min"
+    if column.endswith(("_last_hour",)) or column == "last_auth_hour":
+        return "max"
+    if column.endswith("_flag"):
+        return "max"
+    return "sum"
+
+
+def is_distinct_column(column: str) -> bool:
+    return "distinct" in column
+
+
+def is_ratio_column(column: str) -> bool:
+    return column.endswith(("_ratio", "_avg"))
+
+
+# ---------------------------------------------------------------------------
+# Host classification (vectorised over unique hosts, not 28M rows)
+# ---------------------------------------------------------------------------
+
+def host_matches(host: str, suffixes: tuple[str, ...]) -> bool:
+    return any(host == s or host.endswith("." + s) for s in suffixes)
+
+
+def categorize_hosts(
+    host: pd.Series,
+    categories: dict[str, tuple[str, ...]],
+) -> pd.DataFrame:
+    """Return one int8 indicator column per category, aligned to ``host``."""
+    codes, uniques = pd.factorize(host.astype("string").fillna(""), sort=False)
+    out = {}
+    for name, suffixes in categories.items():
+        lookup = np.fromiter(
+            (host_matches(str(h), suffixes) for h in uniques),
+            dtype=np.int8,
+            count=len(uniques),
+        )
+        values = lookup[codes] if len(uniques) else np.zeros(len(host), dtype=np.int8)
+        out[name] = values
+    return pd.DataFrame(out, index=host.index)
+
+
+# ---------------------------------------------------------------------------
+# Evidence trail (HCEA R8)
+# ---------------------------------------------------------------------------
+
+def repo_root() -> Path:
+    # backend/app/feature_engineering/common.py -> repo root
+    return Path(__file__).resolve().parents[3]
+
+
+def append_experiment_runlog(record: dict) -> Path:
+    """Append one JSON line to experiments/runlog.jsonl in the repository."""
+    path = Path(os.getenv("CIRA_RUNLOG", str(repo_root() / "experiments" / "runlog.jsonl")))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(record, default=str) + "\n")
+    return path
