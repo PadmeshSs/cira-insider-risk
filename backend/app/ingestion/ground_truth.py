@@ -636,7 +636,21 @@ def build_insider_label_tables(
     ground_truth_dir: str | Path,
     processed_dir: str | Path,
 ) -> dict[str, Any]:
-    """Write labels/insider_events.parquet and labels/insider_user_days.parquet."""
+    """Write the evaluation label tables under <processed>/labels/.
+
+    insider_events.parquet     one row per malicious source event
+    insider_user_days.parquet  PRIMARY view, keyed by the incident insider
+                               (answer filename): "was this person acting
+                               maliciously that day?"
+    account_user_days.parquet  SECONDARY view, keyed by the account the event
+                               was logged under (event_user_id): "did this
+                               account's activity include malicious events?"
+
+    The views differ only where an insider acts through someone else's
+    account (r4.2 scenario 3: keylogged supervisor credentials).  Those
+    account-days carry is_masquerade = 1.  See docs/CARRY_FORWARD.md (N1) for
+    how Chapter 6+ evaluation must treat them.
+    """
     events = pd.DataFrame(list(iter_r42_malicious_events(ground_truth_dir)))
     events["date"] = events["timestamp"].dt.normalize()
     events = events.drop_duplicates(["domain", "event_id"])
@@ -650,9 +664,32 @@ def build_insider_label_tables(
     user_days["scenario"] = user_days["scenario"].astype("int8")
     user_days["is_malicious"] = user_days["is_malicious"].astype("int8")
 
+    account_days = (
+        events.groupby(["event_user_id", "date"], as_index=False)
+        .agg(
+            incident_user_id=("user_id", "first"),
+            n_incident_users=("user_id", "nunique"),
+            scenario=("scenario", "min"),
+            n_malicious_events=("event_id", "size"),
+        )
+        .rename(columns={"event_user_id": "account_user_id"})
+    )
+    if (account_days["n_incident_users"] > 1).any():
+        raise ValueError("An account-day carries events from more than one incident insider")
+    account_days = account_days.drop(columns="n_incident_users")
+    account_days["is_masquerade"] = (account_days["account_user_id"] != account_days["incident_user_id"]).astype("int8")
+    account_days["is_malicious"] = 1
+    account_days["is_malicious"] = account_days["is_malicious"].astype("int8")
+    account_days["scenario"] = account_days["scenario"].astype("int8")
+    account_days["n_malicious_events"] = account_days["n_malicious_events"].astype("int32")
+
     out = Path(processed_dir) / "labels"
     out.mkdir(parents=True, exist_ok=True)
-    for frame, name in ((events, "insider_events.parquet"), (user_days, "insider_user_days.parquet")):
+    for frame, name in (
+        (events, "insider_events.parquet"),
+        (user_days, "insider_user_days.parquet"),
+        (account_days, "account_user_days.parquet"),
+    ):
         tmp = out / (name + ".tmp")
         frame.to_parquet(tmp, index=False)
         tmp.replace(out / name)
@@ -664,5 +701,9 @@ def build_insider_label_tables(
         "users_per_scenario": {int(k): int(v) for k, v in events.groupby("scenario")["user_id"].nunique().items()},
         "first_event": str(events["timestamp"].min()),
         "last_event": str(events["timestamp"].max()),
+        "account_user_days": int(len(account_days)),
+        "masquerade_events": int((events["event_user_id"] != events["user_id"]).sum()),
+        "masquerade_account_days": int(account_days["is_masquerade"].sum()),
+        "masquerade_accounts": sorted(account_days.loc[account_days["is_masquerade"] == 1, "account_user_id"].unique().tolist()),
         "output_dir": str(out),
     }

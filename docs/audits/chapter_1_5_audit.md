@@ -80,3 +80,20 @@ Notes:
   every raw CSV once regardless of profile size. Cached re-runs are seconds.
 - The 2 s mid re-run proves stage caching, not crash-resume. The kill-and-resume
   check (HCEA §5.5) is still to be demonstrated on real data.
+
+## Final review (commit 4667bd4): Chapters 1-5 greenlit
+
+- Labels: 7,323 events, 70 insiders, 966 malicious user-days (matches the
+  published r4.2 counts). First event 2010-06-10, last 2011-04-29.
+- Ground-truth identity corrected by the project owner: the incident insider
+  is taken from the answer filename and validated against insiders.csv; the
+  logged account is kept as `event_user_id`. Before the fix, two scenario-3
+  supervisor accounts were counted as insiders (72 users, 986 user-days).
+- Masquerade handling: `account_user_days.parquet` added as a secondary label
+  view with `is_masquerade`; evaluation policy recorded as note N1 in
+  `docs/CARRY_FORWARD.md`; unit test covers an event whose account differs
+  from the filename identity.
+- True peak RSS, mid profile: 1.63 GB (limit 12 GB).
+- HTTP resume verified by an interrupt-and-compare test; a real kill during
+  the full run is still to be done (N8).
+- Host categories reviewed label-blind (15 of 472 hosts categorised).

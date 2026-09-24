@@ -18,11 +18,12 @@ passes its checks.
 | 3 | CERT r4.2 ingestion + ground-truth separation | IMPLEMENTED |
 | 3 | TWOS (secondary dataset) | PLANNED (access request pending) |
 | 4 | Preprocessing and normalization | IMPLEMENTED |
-| 5 | Feature engineering (Stage 0-4) | IMPLEMENTED on synthetic tests; real-data dev/mid/full runs pending |
+| 5 | Feature engineering (Stage 0-4) | IMPLEMENTED; verified on dev and mid, full run pending |
 | 6-16 | Models, CRI, MITRE, XAI, alerts, API, dashboard, evaluation | PLANNED |
 | 17-18 | Kafka, Redis, Celery, SSE, OpenSearch, observability, K8s | NOT IMPLEMENTED (production extensions) |
 
-See `docs/audits/chapter_1_5_audit.md` for the Chapter 1-5 review.
+See `docs/audits/chapter_1_5_audit.md` for the Chapter 1-5 review, and
+`docs/CARRY_FORWARD.md` for the rules every later chapter must follow.
 
 ## Running Chapter 5
 
