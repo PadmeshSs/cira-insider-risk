@@ -207,3 +207,63 @@ def test_dev_profile_only_picks_insiders_active_in_window(tmp_path, monkeypatch)
     monkeypatch.setitem(pipeline.PROFILE_CONFIG, "dev", {**pipeline.PROFILE_CONFIG["dev"], "insiders": 3})
     with pytest.raises(RuntimeError, match="needs 3 insiders"):
         pipeline._profile_users(processed, paths["raw"], "dev", ground_truth_dir=paths["gt"])
+
+def test_http_aggregation_resumes_after_interruption(tmp_path, monkeypatch):
+    paths = synthetic_cert.build(tmp_path)
+    processed = tmp_path / "processed"
+
+    # Create synthetic HTTP Parquet parts.
+    stage0.convert_domain(
+        paths["raw"],
+        processed,
+        "http",
+        profile="full",
+        chunksize=173,
+    )
+
+    fingerprint = "http-resume-test"
+    real_aggregate = pipeline.network.aggregate
+    calls = {"n": 0}
+
+    def flaky_aggregate(df):
+        calls["n"] += 1
+        if calls["n"] == 4:
+            raise KeyboardInterrupt("simulated interruption")
+        return real_aggregate(df)
+
+    monkeypatch.setattr(pipeline.network, "aggregate", flaky_aggregate)
+
+    with pytest.raises(KeyboardInterrupt):
+        pipeline.aggregate_http(processed, "full", fingerprint)
+
+    root = processed / "_runlog" / "http_parts" / "full" / fingerprint
+    completed_aggregates = list((root / "aggregates").glob("*.parquet"))
+
+    # Three aggregate parts completed before the simulated interruption.
+    assert len(completed_aggregates) == 3
+
+    # Resume using the real aggregation function.
+    monkeypatch.setattr(pipeline.network, "aggregate", real_aggregate)
+    resumed = pipeline.aggregate_http(processed, "full", fingerprint)
+
+    assert len(list((root / "aggregates").glob("*.parquet"))) == len(
+        list(processed.glob("events/profile=full/source_type=http/**/*.parquet"))
+    )
+
+    # Compare resumed output with a clean, uninterrupted run.
+    clean_processed = tmp_path / "clean_processed"
+    stage0.convert_domain(
+        paths["raw"],
+        clean_processed,
+        "http",
+        profile="full",
+        chunksize=173,
+    )
+
+    clean = pipeline.aggregate_http(clean_processed, "full", "clean-run")
+
+    pd.testing.assert_frame_equal(
+        resumed.sort_values(["user_id", "date"]).reset_index(drop=True),
+        clean.sort_values(["user_id", "date"]).reset_index(drop=True),
+        check_dtype=False,
+    )
