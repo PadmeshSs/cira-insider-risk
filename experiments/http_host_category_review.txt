@@ -1,0 +1,33 @@
+﻿# HTTP Host Category Review
+
+Date: 2026-09-24
+Profile: mid
+Inventory: experiments/http_host_inventory_mid.csv
+
+## Inventory summary
+
+Total observed hosts: 472
+Job search: 7
+Cloud storage: 5
+Leak/paste: 1
+Hacking tools: 2
+Uncategorized: 457
+
+## Review decision
+
+The existing four category definitions are retained provisionally.
+
+No additional hosts are added based solely on request frequency.
+General-purpose platforms remain uncategorized unless their function
+clearly satisfies a category definition.
+
+The review is label-blind. Ground-truth labels and malicious-user
+identities were not used to select or modify hosts.
+
+This review does not establish that the categories are exhaustive
+or that every existing entry is correct. Further changes require
+documented category-level justification.
+
+## Next step
+
+Proceed with the remaining Chapter 5 validation items.

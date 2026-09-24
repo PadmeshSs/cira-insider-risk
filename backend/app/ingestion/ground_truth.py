@@ -14,6 +14,7 @@ Ground-truth labels must never enter the feature-input/event stream.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -536,37 +537,98 @@ def is_ground_truth_event(
 R42_SCENARIO_DIRS = ("r4.2-1", "r4.2-2", "r4.2-3")
 
 
-def iter_r42_malicious_events(ground_truth_dir: str | Path) -> Iterator[dict[str, Any]]:
+def iter_r42_malicious_events(
+    ground_truth_dir: str | Path,
+) -> Iterator[dict[str, Any]]:
+    """Yield CERT r4.2 observable events with validated incident identities.
+
+    The filename identifies the incident insider. The original user field
+    from the observable row is retained separately for auditability.
+    """
     import csv
 
     root = Path(ground_truth_dir)
+
+    roster_records = load_cert_ground_truth(root)
+    roster = {record.user_id.strip().casefold() for record in roster_records}
+
+    if not roster:
+        raise ValueError(f"No r4.2 insider roster entries found under {root}")
+
     found_any = False
+
     for folder in R42_SCENARIO_DIRS:
         scenario_dir = root / folder
+
         if not scenario_dir.is_dir():
             continue
+
         scenario = int(folder.rsplit("-", 1)[1])
+
         for path in sorted(scenario_dir.glob("*.csv")):
             found_any = True
-            with path.open("r", encoding="utf-8", errors="replace", newline="") as handle:
-                for line_no, fields in enumerate(csv.reader(handle, skipinitialspace=True), start=1):
+
+            match = re.fullmatch(
+                rf"r4\.2-{scenario}-(.+)\.csv",
+                path.name,
+                flags=re.IGNORECASE,
+            )
+
+            if match is None:
+                raise ValueError(f"Unexpected answer filename: {path.name}")
+
+            incident_user_id = match.group(1).strip().casefold()
+
+            if incident_user_id not in roster:
+                raise ValueError(
+                    f"Filename identity {incident_user_id!r} from {path.name} "
+                    "does not appear in insiders.csv."
+                )
+
+            with path.open(
+                "r",
+                encoding="utf-8",
+                errors="replace",
+                newline="",
+            ) as handle:
+                for line_no, fields in enumerate(
+                    csv.reader(handle, skipinitialspace=True),
+                    start=1,
+                ):
                     if len(fields) < 4 or not fields[0].strip():
                         continue
-                    ts = pd.to_datetime(fields[2].strip(), format=CERT_TIMESTAMP_FORMAT, errors="coerce")
+
+                    ts = pd.to_datetime(
+                        fields[2].strip(),
+                        format=CERT_TIMESTAMP_FORMAT,
+                        errors="coerce",
+                    )
+
                     if pd.isna(ts):
-                        raise ValueError(f"Unparseable timestamp in {path.name}:{line_no}: {fields[2]!r}")
+                        raise ValueError(
+                            f"Unparseable timestamp in "
+                            f"{path.name}:{line_no}: {fields[2]!r}"
+                        )
+
                     yield {
                         "domain": fields[0].strip().casefold(),
                         "event_id": fields[1].strip(),
                         "timestamp": ts,
-                        "user_id": fields[3].strip().casefold(),
-                        "device_id": fields[4].strip().casefold() if len(fields) > 4 else None,
+                        "user_id": incident_user_id,
+                        "event_user_id": fields[3].strip().casefold(),
+                        "device_id": (
+                            fields[4].strip().casefold()
+                            if len(fields) > 4 and fields[4].strip()
+                            else None
+                        ),
                         "scenario": scenario,
                         "source_file": f"{folder}/{path.name}",
                     }
+
     if not found_any:
         raise FileNotFoundError(
-            f"No r4.2 answer files under {root} (expected {', '.join(R42_SCENARIO_DIRS)})"
+            f"No r4.2 answer files under {root} "
+            f"(expected {', '.join(R42_SCENARIO_DIRS)})"
         )
 
 
