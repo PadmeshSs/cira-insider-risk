@@ -19,11 +19,13 @@ passes its checks.
 | 3 | TWOS (secondary dataset) | PLANNED (access request pending) |
 | 4 | Preprocessing and normalization | IMPLEMENTED |
 | 5 | Feature engineering (Stage 0-4) | IMPLEMENTED; verified on dev and mid, full run pending |
-| 6-16 | Models, CRI, MITRE, XAI, alerts, API, dashboard, evaluation | PLANNED |
+| 6 | Baselines: rule, Isolation Forest, LOF, LSTM autoencoder, XGBoost | PARTIALLY IMPLEMENTED; tested on synthetic data, mid/full runs pending |
+| 7-16 | TabNet, CRI, MITRE, XAI, alerts, API, dashboard, evaluation | PLANNED |
 | 17-18 | Kafka, Redis, Celery, SSE, OpenSearch, observability, K8s | NOT IMPLEMENTED (production extensions) |
 
 See `docs/audits/chapter_1_5_audit.md` for the Chapter 1-5 review, and
 `docs/CARRY_FORWARD.md` for the rules every later chapter must follow.
+Chapter 6 is described in `docs/chapters/chapter_6_baselines.md`.
 
 ## Running Chapter 5
 
@@ -38,6 +40,22 @@ python ../scripts/http_host_inventory.py     # label-blind review of host classe
 
 Work up the profile ladder (dev, then mid, then full). Numbers from `dev`
 are never reported (HCEA R10). Every run appends to `experiments/runlog.jsonl`.
+
+## Running Chapter 6
+
+After the Chapter 5 matrix and the label tables exist for a profile, from
+`backend/`:
+
+```bash
+python -m app.baselines.run --profile mid                # user split, all five baselines
+python -m app.baselines.run --profile mid --split time   # time-ordered check
+```
+
+The first run writes the user split to `experiments/splits/`; later runs
+reuse it. Metrics go to `experiments/results/chapter6/<run_id>/metrics.json`
+(gitignored), one headline line per model to `experiments/runlog.jsonl`,
+scores to `<CERT_PROCESSED_DIR>/scores/chapter6/<run_id>/`. See
+`docs/chapters/chapter_6_baselines.md`.
 
 ## Tests
 

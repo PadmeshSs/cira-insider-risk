@@ -1,0 +1,93 @@
+diff --git a/scripts/inspect_scores.py b/scripts/inspect_scores.py
+index 0ed17d4..1d15ee6 100644
+--- a/scripts/inspect_scores.py
++++ b/scripts/inspect_scores.py
+@@ -53,7 +53,7 @@ def _fmt(v, nd=3):
+     return "n/a" if v is None else f"{v:.{nd}f}"
+ 
+ 
+-def inspect(name: str, block: dict, part: str, matrix: pd.DataFrame, views, budgets, seed: int) -> dict:
++def inspect(name: str, block: dict, part: str, matrix: pd.DataFrame, views, budgets, seed: int, split_info: dict | None = None) -> dict:
+     sc = pd.read_parquet(block["metadata"]["scores_path"])
+     sc = sc[sc["split"] == part].reset_index(drop=True)
+     ctx = sc[["user_id", "date"]].merge(matrix, on=["user_id", "date"], how="left")
+@@ -92,6 +92,22 @@ def inspect(name: str, block: dict, part: str, matrix: pd.DataFrame, views, budg
+             "share_inactive": float((alerted & ~active).sum() / n) if n else None,
+             "share_weekend": float((alerted & weekend).sum() / n) if n else None,
+         }
++    if split_info and split_info.get("mode") == "time":
++        # Time split: the same people are in train and test. Separate the
++        # insiders already seen with malicious days in training from the new
++        # ones, so "recognises known insiders" is not read as "detects insiders".
++        seen = set(views.primary.loc[views.primary["date"] < split_info["validation_start"], "user_id"])
++        users = sc["user_id"].to_numpy()
++        is_seen = np.isin(users, list(seen))
++        unseen = keep & ~is_seen
++        out["time_split_insiders"] = {
++            "seen_in_training": sorted(set(users[(y == 1) & is_seen])),
++            "new_in_this_part": sorted(set(users[(y == 1) & ~is_seen])),
++            "positives_from_seen": int(((y == 1) & is_seen & keep).sum()),
++            "positives_from_new": int(((y == 1) & unseen).sum()),
++            "pr_auc_new_insiders_only": _auc(y[unseen], s[unseen], average_precision_score),
++            "chance_new_insiders_only": float(y[unseen].mean()) if unseen.any() else None,
++        }
+     if name == "gbdt":
+         top = block["metadata"].get("top_features_by_gain", [])[:15]
+         out["top_features_by_gain"] = top
+@@ -114,6 +130,11 @@ def _print(r: dict, part: str) -> None:
+     for k, v in r["budgets"].items():
+         print(f"  top-{k:<3} precision {_fmt(v['precision'])} of max {_fmt(v['precision_ceiling'])}   "
+               f"alerts on inactive days {_fmt(v['share_inactive'], 2)}  on weekends {_fmt(v['share_weekend'], 2)}")
++    if "time_split_insiders" in r:
++        t = r["time_split_insiders"]
++        print(f"  time split: {len(t['seen_in_training'])} insiders already seen in training ({t['positives_from_seen']} positive days), "
++              f"{len(t['new_in_this_part'])} new ({t['positives_from_new']} positive days)")
++        print(f"  PR-AUC on new insiders + benign only: {_fmt(t['pr_auc_new_insiders_only'])} (chance {_fmt(t['chance_new_insiders_only'], 4)})")
+     if "top_features_by_gain" in r:
+         print("  top features by gain: " + ", ".join(f"{f} ({g:.0f})" for f, g in r["top_features_by_gain"][:10]))
+         if r["static_traits_in_top10"]:
+@@ -142,7 +163,7 @@ def main(argv=None) -> None:
+     matrix["date"] = matrix["date"].astype("string")
+     views = load_label_views(processed)
+     names = [args.model] if args.model else list(report["models"])
+-    results = [inspect(n, report["models"][n], args.part, matrix, views, report["budgets"], report["seed"]) for n in names]
++    results = [inspect(n, report["models"][n], args.part, matrix, views, report["budgets"], report["seed"], report["split"]) for n in names]
+     for r in results:
+         _print(r, args.part)
+     out = Path(args.results_dir) / args.run_id / f"inspection_{args.part}.json"
+diff --git a/scripts/verify_chapter6.py b/scripts/verify_chapter6.py
+index 9c5d736..d854de0 100644
+--- a/scripts/verify_chapter6.py
++++ b/scripts/verify_chapter6.py
+@@ -90,7 +90,8 @@ def main(argv=None) -> int:
+     p = argparse.ArgumentParser(description="Verify a Chapter 6 run")
+     p.add_argument("--processed-dir", default=os.getenv("CERT_PROCESSED_DIR"), required=os.getenv("CERT_PROCESSED_DIR") is None)
+     p.add_argument("--profile", default=os.getenv("CIRA_PROFILE", "mid"), choices=("dev", "mid", "full"))
+-    p.add_argument("--split", default="user", choices=("user", "time"))
++    p.add_argument("--split", default=None, choices=("user", "time"),
++                   help="picks the newest run of this mode; ignored when --run-id is given (the run's own mode is used)")
+     p.add_argument("--run-id", default=None, help="defaults to the newest run for profile/split")
+     p.add_argument("--results-dir", default=str(root / "experiments" / "results" / "chapter6"))
+     p.add_argument("--splits-dir", default=str(root / "experiments" / "splits"))
+@@ -101,15 +102,18 @@ def main(argv=None) -> int:
+     args = p.parse_args(argv)
+ 
+     results = Path(args.results_dir)
+-    run_id = args.run_id or _latest_run(results, args.profile, args.split)
++    run_id = args.run_id or _latest_run(results, args.profile, args.split or "user")
+     report = json.loads((results / run_id / "metrics.json").read_text(encoding="utf-8"))
++    requested_split = args.split
++    args.split = report["split"]["mode"]          # the run decides; a flag cannot contradict it
+     c = Checks()
+-    print(f"\nVerifying Chapter 6 run {run_id}\n")
++    print(f"\nVerifying Chapter 6 run {run_id}  (split mode from the run: {args.split})\n")
+ 
+     # ------------------------------------------------------------------ A
+     S = "run"
+     c.ok(S, "profile matches", report["profile"] == args.profile, report["profile"])
+-    c.ok(S, "split mode matches", report["split"]["mode"] == args.split, report["split"]["mode"])
++    if requested_split and requested_split != args.split:
++        c.add(S, "split mode", "WARN", f"--split {requested_split} given, but this run is {args.split}; verified as {args.split}")
+     c.ok(S, "reportable flag follows N6", report["reportable"] == (args.profile != "dev"), f"reportable={report['reportable']}")
+     if args.profile == "dev":
+         c.add(S, "dev numbers are for debugging only", "WARN", "never report them (HCEA R10)")

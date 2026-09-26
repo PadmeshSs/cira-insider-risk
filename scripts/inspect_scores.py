@@ -1,0 +1,175 @@
+"""Look inside a Chapter 6 run to explain its numbers (validation split by default).
+
+Answers questions the headline table cannot:
+
+* What kinds of user-days does a detector put in its daily top-k? A high
+  share of inactive days means it ranks "rare null pattern" or "quiet day",
+  not suspicious behaviour.
+* Does it separate malicious days from benign ACTIVE days? Malicious days
+  always have events, so comparing them with inactive days is too easy.
+* What is the best precision the daily budget allows? With ~1% positives,
+  precision@k is capped by how many malicious days exist per calendar day.
+* For GBDT: which features carry the model? Static per-user traits
+  (psychometrics, department size) at the top would mean it learned who
+  the insiders are like, not what they did.
+
+Use validation to reason and to make any design decision. ``--part test``
+exists for the write-up only; choosing anything after looking at test
+turns test into a second validation set.
+
+Usage, from backend/:
+    python ../scripts/inspect_scores.py --profile mid --run-id <id>
+    python ../scripts/inspect_scores.py --profile mid --run-id <id> --model lof
+"""
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
+
+import argparse  # noqa: E402
+import json  # noqa: E402
+import os  # noqa: E402
+
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
+from sklearn.metrics import average_precision_score, roc_auc_score  # noqa: E402
+
+from app.evaluation.labels import attach_labels, load_label_views  # noqa: E402
+from app.evaluation.metrics import daily_top_k  # noqa: E402
+from app.feature_engineering.common import repo_root  # noqa: E402
+
+PROFILE_OUTPUT = {"dev": "user_day_dev.parquet", "mid": "user_day_mid.parquet", "full": "user_day_full.parquet"}
+STATIC_TRAITS = ("psych_", "peer_department_size")
+
+
+def _auc(y, s, fn):
+    y = np.asarray(y)
+    return None if y.sum() == 0 or y.sum() == len(y) else float(fn(y, s))
+
+
+def _fmt(v, nd=3):
+    return "n/a" if v is None else f"{v:.{nd}f}"
+
+
+def inspect(name: str, block: dict, part: str, matrix: pd.DataFrame, views, budgets, seed: int, split_info: dict | None = None) -> dict:
+    sc = pd.read_parquet(block["metadata"]["scores_path"])
+    sc = sc[sc["split"] == part].reset_index(drop=True)
+    ctx = sc[["user_id", "date"]].merge(matrix, on=["user_id", "date"], how="left")
+    lab = attach_labels(sc[["user_id", "date"]], views)
+    keep = ~lab["exclude_primary"].to_numpy()
+    y = lab["y_primary"].to_numpy()
+    s = sc["anomaly_score"].to_numpy()
+    active = ctx["is_active_day"].fillna(0).to_numpy() > 0
+    weekend = ctx["is_weekend"].fillna(0).to_numpy() > 0
+
+    out = {"model": name, "rows": int(len(sc)), "positives": int(y[keep].sum())}
+    out["malicious_on_inactive_days"] = int((y.astype(bool) & ~active & keep).sum())
+    act = keep & active
+    out["all_rows"] = {"pr_auc": _auc(y[keep], s[keep], average_precision_score), "roc_auc": _auc(y[keep], s[keep], roc_auc_score)}
+    out["active_days_only"] = {
+        "rows": int(act.sum()),
+        "chance": float(y[act].mean()) if act.any() else None,
+        "pr_auc": _auc(y[act], s[act], average_precision_score),
+        "roc_auc": _auc(y[act], s[act], roc_auc_score),
+    }
+    groups = {"malicious": keep & (y == 1), "benign_active": keep & (y == 0) & active, "benign_inactive": keep & (y == 0) & ~active}
+    out["median_score"] = {g: (float(np.median(s[m])) if m.any() else None) for g, m in groups.items()}
+
+    out["budgets"] = {}
+    dates = sc["date"]
+    pos_per_day = pd.Series(y * keep, index=dates.to_numpy()).groupby(level=0).sum()
+    for k in budgets:
+        alerted = daily_top_k(dates, s, k, seed=seed)
+        n = int(alerted.sum())
+        ceiling = float(np.minimum(pos_per_day.to_numpy(), k).sum() / n) if n else None
+        tp = int((alerted & (y == 1) & keep).sum())
+        out["budgets"][str(k)] = {
+            "alerts": n,
+            "precision": tp / max(1, int((alerted & keep).sum())),
+            "precision_ceiling": ceiling,
+            "share_inactive": float((alerted & ~active).sum() / n) if n else None,
+            "share_weekend": float((alerted & weekend).sum() / n) if n else None,
+        }
+    if split_info and split_info.get("mode") == "time":
+        # Time split: the same people are in train and test. Separate the
+        # insiders already seen with malicious days in training from the new
+        # ones, so "recognises known insiders" is not read as "detects insiders".
+        seen = set(views.primary.loc[views.primary["date"] < split_info["validation_start"], "user_id"])
+        users = sc["user_id"].to_numpy()
+        is_seen = np.isin(users, list(seen))
+        unseen = keep & ~is_seen
+        out["time_split_insiders"] = {
+            "seen_in_training": sorted(set(users[(y == 1) & is_seen])),
+            "new_in_this_part": sorted(set(users[(y == 1) & ~is_seen])),
+            "positives_from_seen": int(((y == 1) & is_seen & keep).sum()),
+            "positives_from_new": int(((y == 1) & unseen).sum()),
+            "pr_auc_new_insiders_only": _auc(y[unseen], s[unseen], average_precision_score),
+            "chance_new_insiders_only": float(y[unseen].mean()) if unseen.any() else None,
+        }
+    if name == "gbdt":
+        top = block["metadata"].get("top_features_by_gain", [])[:15]
+        out["top_features_by_gain"] = top
+        out["static_traits_in_top10"] = [f for f, _ in top[:10] if f.startswith(STATIC_TRAITS)]
+    if name == "lof":
+        md = block["metadata"]
+        out["lof"] = {k: md.get(k) for k in ("lof_fit_rows", "pca_components", "pca_retained_variance", "n_missing_indicators")}
+    return out
+
+
+def _print(r: dict, part: str) -> None:
+    print(f"\n=== {r['model']}  ({part}: {r['rows']} rows, {r['positives']} malicious user-days)")
+    a, b = r["all_rows"], r["active_days_only"]
+    print(f"  all rows          PR-AUC {_fmt(a['pr_auc'])}  ROC-AUC {_fmt(a['roc_auc'])}")
+    print(f"  active days only  PR-AUC {_fmt(b['pr_auc'])}  ROC-AUC {_fmt(b['roc_auc'])}  (chance {_fmt(b['chance'], 4)}, {b['rows']} rows)")
+    if r["malicious_on_inactive_days"]:
+        print(f"  NOTE: {r['malicious_on_inactive_days']} malicious days are flagged inactive; check Chapter 5 is_active_day")
+    m = r["median_score"]
+    print(f"  median score      malicious {_fmt(m['malicious'])}  benign active {_fmt(m['benign_active'])}  benign inactive {_fmt(m['benign_inactive'])}")
+    for k, v in r["budgets"].items():
+        print(f"  top-{k:<3} precision {_fmt(v['precision'])} of max {_fmt(v['precision_ceiling'])}   "
+              f"alerts on inactive days {_fmt(v['share_inactive'], 2)}  on weekends {_fmt(v['share_weekend'], 2)}")
+    if "time_split_insiders" in r:
+        t = r["time_split_insiders"]
+        print(f"  time split: {len(t['seen_in_training'])} insiders already seen in training ({t['positives_from_seen']} positive days), "
+              f"{len(t['new_in_this_part'])} new ({t['positives_from_new']} positive days)")
+        print(f"  PR-AUC on new insiders + benign only: {_fmt(t['pr_auc_new_insiders_only'])} (chance {_fmt(t['chance_new_insiders_only'], 4)})")
+    if "top_features_by_gain" in r:
+        print("  top features by gain: " + ", ".join(f"{f} ({g:.0f})" for f, g in r["top_features_by_gain"][:10]))
+        if r["static_traits_in_top10"]:
+            print(f"  NOTE: static per-user traits in the top 10: {r['static_traits_in_top10']}")
+    if "lof" in r:
+        print(f"  LOF setup: {r['lof']}")
+
+
+def main(argv=None) -> None:
+    root = repo_root()
+    p = argparse.ArgumentParser(description="Inspect a Chapter 6 run")
+    p.add_argument("--processed-dir", default=os.getenv("CERT_PROCESSED_DIR"), required=os.getenv("CERT_PROCESSED_DIR") is None)
+    p.add_argument("--profile", default="mid", choices=tuple(PROFILE_OUTPUT))
+    p.add_argument("--run-id", required=True)
+    p.add_argument("--model", default=None)
+    p.add_argument("--part", default="validation", choices=("validation", "test"))
+    p.add_argument("--results-dir", default=str(root / "experiments" / "results" / "chapter6"))
+    args = p.parse_args(argv)
+    if args.part == "test":
+        print("Reading TEST. Use this for the write-up only, not to change any design choice.")
+
+    report = json.loads((Path(args.results_dir) / args.run_id / "metrics.json").read_text(encoding="utf-8"))
+    processed = Path(args.processed_dir)
+    matrix = pd.read_parquet(processed / "features" / PROFILE_OUTPUT[args.profile], columns=["user_id", "date", "is_active_day", "is_weekend"])
+    matrix["user_id"] = matrix["user_id"].astype("string").str.strip().str.casefold()
+    matrix["date"] = matrix["date"].astype("string")
+    views = load_label_views(processed)
+    names = [args.model] if args.model else list(report["models"])
+    results = [inspect(n, report["models"][n], args.part, matrix, views, report["budgets"], report["seed"], report["split"]) for n in names]
+    for r in results:
+        _print(r, args.part)
+    out = Path(args.results_dir) / args.run_id / f"inspection_{args.part}.json"
+    out.write_text(json.dumps(results, indent=2, default=str), encoding="utf-8")
+    print(f"\nwritten: {out}")
+
+
+if __name__ == "__main__":
+    main()

@@ -21,6 +21,11 @@ How to use it when prompting a chapter:
 | N7 host list | 5 (re-runs), any feature change |
 | N8 resource rules | every heavy entry point |
 | N9 unsupported signals | 7, 9, 10, 16 (reporting) |
+| N10 score convention | 7, 8, 9, 16 |
+| N11 one saved split | 7, 16 |
+| N12 causal scoring | 7, 8, 16, any sequence model |
+| N13 masquerade in training | 7, 16 |
+| N14 Chapter 6 status | 16, 19 |
 
 ---
 
@@ -127,3 +132,48 @@ No failed logins, source IPs, byte volumes, file create/modify/delete
 events, or application/process logs. Features for these are omitted, not
 fabricated. Explanations, MITRE mappings and the dashboard must not claim
 them.
+
+## N10. One score convention for every detector  (from Chapter 6)
+
+Every detector exposes `score(frame) -> [0, 1]`, higher = more anomalous,
+with any calibration fitted on training rows only
+(`app/baselines/base.py`). The map must be monotone so ranking metrics are
+unchanged. Every stored score row carries `model_version`.
+
+- TabNet's `infer.score()` (Chapter 7/8) follows the same convention, so
+  Chapter 16 can compare all detectors with one harness.
+- Chapter 9 CRI consumes this score; it never talks to a model directly.
+
+## N11. Load the saved split, never recompute it  (from Chapter 6)
+
+The user split lives in `experiments/splits/user_split_<profile>_seed<seed>.json`.
+Chapter 7 and Chapter 16 load it with `app.evaluation.splitting.load_split`
+(or go through `load_or_create_split`, which refuses a mismatch). The rule is
+population-independent, so a user has the same split in mid and full.
+
+- Changing the split needs `--rebuild-split` and a line in the write-up.
+- Model selection uses validation only; test is looked at once per model.
+
+## N12. Sequence models score causally  (from Chapter 6)
+
+A score for day t may only use rows dated t or earlier. The LSTM
+autoencoder scores day t from the window that ends on t. Any later sequence
+model, or any window-based explanation, follows the same rule.
+
+## N13. Masquerade days are out of supervised training too  (from Chapter 6)
+
+Supervisor account-days with `is_masquerade = 1` are dropped from training
+and validation rows for any supervised model (GBDT now, TabNet in Chapter 7),
+not only from evaluation. Keeping them as negatives teaches the model that
+malicious activity is benign. Unsupervised models see them, label-blind.
+
+## N14. Chapter 6 is PARTIALLY IMPLEMENTED until real runs exist  (from Chapter 6)
+
+The code is tested on synthetic data only. Chapter 6 becomes IMPLEMENTED
+when `experiments/runlog.jsonl` has `chapter6_baseline` lines for all five
+detectors at mid and full (user split; time split at least at mid). Until
+then no baseline number is quoted anywhere. Each of those runs must also
+pass `scripts/verify_chapter6.py` with 0 FAIL (the mid user-split run with
+`--reload-models --permutation-test`), with every WARN explained in the write-up. Report LOF numbers with
+`lof_fit_rows`, `pca_components` and `pca_retained_variance`, and say which
+profile every number came from (mid has ~28% insider users, full ~7%).

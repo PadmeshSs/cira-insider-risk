@@ -1,0 +1,89 @@
+{
+ "version": "ch6-user-split-v1",
+ "profile": "dev",
+ "seed": 42,
+ "fractions": {
+  "train": 0.6,
+  "validation": 0.2,
+  "test": 0.2
+ },
+ "method": "insiders: per-scenario largest-remainder allocation over a seeded-hash order; benign: seeded-hash threshold. Population-independent, so mid and full agree on shared users.",
+ "counts": {
+  "train": {
+   "users": 26,
+   "insiders": 6,
+   "insiders_by_scenario": {
+    "1": 2,
+    "2": 2,
+    "3": 2
+   }
+  },
+  "validation": {
+   "users": 12,
+   "insiders": 3,
+   "insiders_by_scenario": {
+    "1": 1,
+    "2": 1,
+    "3": 1
+   }
+  },
+  "test": {
+   "users": 11,
+   "insiders": 1,
+   "insiders_by_scenario": {
+    "1": 1
+   }
+  }
+ },
+ "assignment": {
+  "aae0190": "train",
+  "aaf0535": "validation",
+  "aaf0791": "train",
+  "aal0706": "train",
+  "aan0823": "test",
+  "aav0450": "train",
+  "aaw0353": "validation",
+  "abc0253": "validation",
+  "abh0663": "test",
+  "abm0845": "test",
+  "abn0239": "test",
+  "acc0042": "train",
+  "acv0812": "train",
+  "adc0391": "validation",
+  "add0846": "test",
+  "adf0397": "train",
+  "aes0827": "train",
+  "agb0186": "validation",
+  "agb0643": "train",
+  "ahc0142": "test",
+  "ahd0848": "train",
+  "ahg0634": "train",
+  "ahm0410": "validation",
+  "aib0948": "validation",
+  "aih0675": "validation",
+  "aim0627": "test",
+  "aip0394": "test",
+  "aip0982": "train",
+  "ais0405": "train",
+  "ajc0840": "validation",
+  "ajd0074": "train",
+  "ajf0370": "validation",
+  "ajh0175": "test",
+  "ajl0462": "train",
+  "ajn0607": "train",
+  "ajp0723": "train",
+  "ajr0319": "train",
+  "akc0924": "train",
+  "akf0709": "test",
+  "akh0758": "train",
+  "bbs0039": "train",
+  "bdv0168": "train",
+  "bih0745": "validation",
+  "cah0936": "test",
+  "csc0217": "train",
+  "dib0285": "train",
+  "egd0132": "train",
+  "ehb0824": "train",
+  "gtd0219": "validation"
+ }
+}
