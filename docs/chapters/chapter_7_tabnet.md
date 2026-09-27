@@ -314,7 +314,9 @@ noise; look at the active-days-only numbers and inspect before accepting it.
 A unit test checks that a leak-sized score (0.20 at chance 0.01) still FAILs.
 
 Outcome: every reported run PASSes the original Chapter 6 bar on its worst
-of three shuffles, so the WARN tier was never used. The untrained network
+of three shuffles, so no reported run needed the WARN tier. It was used once,
+for the superseded all-features run `114021Z`, whose first FAIL became a
+WARN (worst shuffle above the bar, below the best label-free baseline). The untrained network
 sat at chance in all three runs, which does not support the idea that the
 architecture ranks unusual rows before seeing labels. One full-profile
 shuffle reached about 8 x chance and passed only on the absolute floor; the

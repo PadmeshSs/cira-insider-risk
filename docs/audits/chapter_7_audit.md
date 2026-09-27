@@ -53,8 +53,10 @@ no full time-split baseline to compare with either.
 | Run id | What | Verifier |
 |---|---|---|
 | `20260927T114008Z-dev-user-s42`, `20260927T125632Z-dev-user-s42` | dev smoke runs, never reported | not verified |
-| `20260927T114021Z-mid-user-s42` | first mid run, all features (v0001); reload + permutation + baselines | 79 PASS, 1 WARN, 1 FAIL; superseded, not adopted |
-| `20260927T121708Z-mid-user-s42` | static-trait ablation (v0002): the adopted configuration, trained from scratch (29 epochs, best epoch 13) | not verified separately; `125702Z` completed from its checkpoints, so v0002 and v0003 hold the same weights, and their registry entries carry identical validation and test metrics |
+| `20260927T114021Z-mid-user-s42` | first mid run, all features (v0001); reload + permutation + baselines | 79 PASS, 1 WARN, 1 FAIL; re-verified under C7-8: 79 PASS, 2 WARN, 0 FAIL. Superseded, not adopted |
+| `20260927T121708Z-mid-user-s42` | static-trait ablation (v0002): the adopted configuration, trained from scratch (29 epochs, best epoch 13); reload + permutation + baselines | 81 PASS, 0 WARN, 0 FAIL. `125702Z` completed from its checkpoints, so v0002 and v0003 hold the same weights, and their registry entries carry identical validation and test metrics |
+| `20260927T123338Z-mid-user-s42` | first determinism re-run: all-features configuration, compared with `121708Z` (behaviour-only) | 59 PASS, 3 WARN, 0 FAIL; invalid comparison, replaced by `160614Z` |
+| `20260927T124008Z-mid-user-s42` | first resume test: all-features configuration, resumed after epoch 3, compared with `121708Z` (behaviour-only) | 59 PASS, 4 WARN, 0 FAIL; invalid comparison, replaced by `160956Z` |
 | `20260927T125702Z-mid-user-s42` | adopted, mid user (v0003); reload + permutation + baselines | 81 PASS, 0 WARN, 0 FAIL |
 | `20260927T160614Z-mid-user-s42` | `--fresh` determinism re-run, not registered; compared with `125702Z` | 61 PASS, 2 WARN, 0 FAIL; max score difference 0 |
 | `20260927T160956Z-mid-user-s42` | resume test: `--fresh`, killed during epoch 4, resumed after epoch 3; compared with `125702Z` | 61 PASS, 2 WARN, 0 FAIL; max score difference 0 |
@@ -65,7 +67,8 @@ WARNs and why they are acceptable:
 
 - **"Model registered"** on `160614Z` and `160956Z`: both used `--no-register` on purpose; they exist only to be compared.
 - **"Both runs trained from scratch"** on the same two runs: the verifier flags it because `125702Z` did not train any epoch itself; it completed from the checkpoints of the ablation run `121708Z`, which trained from scratch (`resumed_from_epoch: null` in its registry entry). So `160614Z` compares two from-scratch trainings, and `160956Z` compares a resumed training with a from-scratch one. Both match exactly. The resumed run also printed the same loss, validation ROC-AUC, validation PR-AUC and learning rate as the fresh run for every epoch from 4 to 29.
-- **`114021Z`**: the static-trait WARN led to the ablation. Its FAIL was the permutation test (0.0388 against a bar of 0.0300, one shuffle), which led to deviation C7-8. The run was not re-verified under C7-8 because its configuration was not adopted; its runlog lines stay as they are.
+- **`114021Z`**: the static-trait WARN led to the ablation. Its first FAIL was the permutation test (0.0388 against a bar of 0.0300, one shuffle), which led to deviation C7-8. Re-verified under C7-8 the PASS count is unchanged (79) and the FAIL became a second WARN: its worst shuffle is above the 0.0300 bar but below the best label-free baseline (0.0896). The shuffle values are in that run's `verification.json`. Both runlog lines stay; the configuration was not adopted.
+- **`123338Z` and `124008Z`**: the first determinism and resume tests trained the all-features configuration but were compared with the behaviour-only run `121708Z`. Scores of two different configurations cannot match, so these comparisons say nothing about determinism; that explains their extra WARNs. This was an error in running the procedure, not a code defect. Both were repeated correctly on the adopted configuration as `160614Z` and `160956Z`, and only those are used as evidence.
 
 Checks that hold in every reported run:
 
@@ -94,7 +97,8 @@ The best label-free Chapter 6 baseline on the same rows (LSTM autoencoder)
 reaches 0.0896, 0.0774 and 0.0784 respectively; every shuffle is far below
 it. All three verdicts are PASS under the original Chapter 6 bar
 (max(3 x chance, chance + 0.02)); the WARN tier added by C7-8 was not needed
-for any reported run.
+for any reported run. It was used once, for the superseded all-features
+run `114021Z`.
 
 What this shows, and what it does not:
 
@@ -109,9 +113,9 @@ What this shows, and what it does not:
   with a positive weight of about 506 occasionally lands on unusual days.
   It is recorded here rather than explained away.
 - The superseded all-features run scored 0.0388 on one shuffle (seed 12345)
-  under the old single-shuffle test. The adopted configuration scores
-  0.0227 on the same seed. Whether static traits made that difference was
-  not tested.
+  under the old single-shuffle test, and re-verified under C7-8 it lands in
+  the WARN tier. The adopted configuration scores 0.0227 on the same seed.
+  Whether the static traits cause that difference was not tested.
 
 ## Static-trait ablation
 
@@ -237,6 +241,5 @@ permutation test adds about 5 minutes. Hyperparameter configurations logged:
 
 - **Which model Chapter 8 serves.** The Bible names TabNet the primary model, mainly for its attention masks (Chapter 11). The evidence here, validation included, ranks XGBoost higher. Chapter 8 must make and record that choice; if TabNet is served, pin v0005 (N21, N26).
 - **Seed variance.** Every number above comes from one seed. Chapter 16 needs several seeds per configuration and bootstrap intervals (C6-2, C7-7) before any finer ranking claim.
-- **`114021Z` under C7-8.** Optional, since that configuration is not used: `python ../scripts/verify_chapter7.py --profile mid --run-id 20260927T114021Z-mid-user-s42 --permutation-test`.
 - **Optional HCEA ablations not run:** balanced sampler (§7.3) and pretraining (§7.4).
 - **N8 (Chapter 5):** the http-stage interrupt test is still open, as in the Chapter 6 audit.
