@@ -30,6 +30,14 @@ How to use it when prompting a chapter:
 | N16 time split: seen/new breakdown | 7, 16 |
 | N17 budget depends on profile | 7, 16 |
 | N18 baseline reference runs | 7, 16 |
+| N19 Chapter 7 status (RETIRED) | - |
+| N20 TabNet score is a ranking score | 8, 9, 11, 16 |
+| N21 models load through the registry | 8, 12, 13, 16 |
+| N22 model input columns | 11, 14 |
+| N23 supervised comparison | 16, 19 (reporting) |
+| N24 Chapter 7 reference runs | 8, 16 |
+| N25 adopted TabNet is behaviour-only | 7 (re-runs), 8, 11, 16 |
+| N26 TabNet trails XGBoost; noisy selection | 8, 11, 16, 19 (reporting) |
 
 ---
 
@@ -228,3 +236,130 @@ ever re-run, record the new run id there and say why.
 - The LSTM's ranking moved noticeably with training order alone (full
   ROC-AUC 0.862 vs 0.767 across the fix). Chapter 16 should use several
   seeds before ranking it against models near it.
+
+## N19. Chapter 7 is PARTIALLY IMPLEMENTED until real runs exist  (from Chapter 7)
+
+RETIRED (chapter 7, mid and full runs verified; see `docs/audits/chapter_7_audit.md`).
+
+The TabNet code is tested on synthetic data only. Chapter 7 becomes
+IMPLEMENTED when `experiments/runlog.jsonl` has `chapter7_tabnet` lines for:
+
+- mid, user split, passing `scripts/verify_chapter7.py --reload-models
+  --permutation-test --baselines` with 0 FAIL;
+- mid, time split, passing `--baselines` with 0 FAIL;
+- full, user split, passing `--reload-models --permutation-test --baselines`
+  with 0 FAIL;
+- a `--fresh` re-run at mid compared with `--compare-run-id`.
+
+Every WARN is explained in `docs/audits/chapter_7_audit.md`, which also lists
+the reported run ids (the Chapter 7 equivalent of N18). Until then no TabNet
+number is quoted anywhere. Mark this note RETIRED when that is done.
+
+## N20. TabNet's score is a ranking score, not a probability  (from Chapter 7)
+
+`anomaly_score = sigmoid(logit margin)`, computed in float64, in [0, 1]. It
+equals `predict_proba[:, 1]`, but the model was trained with a class-weighted
+loss (positive weight = negatives / positives; with 574 training positives
+that is roughly 110 at mid and 500 at full), so the number is inflated
+relative to a true probability of malice.
+
+- Chapter 9 uses it as a score input to CRI, never as "the probability this
+  user is malicious", and the dashboard does not label it as one.
+- If calibrated probabilities are ever needed, fit a calibrator on validation
+  only and record it as a new model version.
+- Scores at exactly 1.0 are counted in each run (`saturated_scores`); report
+  them if non-zero.
+
+## N21. Models are loaded through the registry  (from Chapter 7)
+
+`models/saved_models/tabnet/` is append-only: a version directory is never
+replaced, and every file has a sha256 in `registry.jsonl`.
+
+- Chapter 8 loads with `app.tabnet.infer.load_model(ref, registry_root=...,
+  verify=True)` and serves on CPU. On any load or verification failure it
+  gets `ModelUnavailableError` and returns an explicit error, never a score
+  (Architecture §36).
+- Reported results and the served model name a pinned registry version
+  (`v000N`), not "latest".
+- Every stored score carries `model_version`; lineage from an alert back to
+  the artifact goes model_version -> registry entry -> files.
+
+## N22. The model's input columns are not the matrix's columns  (from Chapter 7)
+
+The network sees `preprocessor.output_columns`: every Chapter 5 feature after
+imputation, signed log1p and standardisation, followed by one
+`isnull__<column>` indicator per nullable column.
+
+- Chapter 11 maps mask and SHAP contributions by position in that list,
+  sums a feature with its indicator (`app.tabnet.dataset.feature_groups`),
+  and describes values from the raw matrix row, not the standardised input.
+- SHAP background sets are drawn from preprocessed training rows (HCEA D-5).
+- If the static-trait check (psychometrics, department size in the mask
+  top 10) ever warns, Chapter 11 must not present those as behavioural
+  reasons.
+
+## N23. The supervised comparison is TabNet vs XGBoost  (from Chapter 7)
+
+Both are trained on the same primary labels, the same split, with the same
+class-weight ratio, early-stopped on validation PR-AUC.
+
+- Chapter 16 compares them with `app.evaluation.compare` on identical rows,
+  budgets and tie-break seed, per scenario, with the harness check passing.
+- If TabNet does not beat XGBoost, that is the result; it is not tuned on
+  test to change it. The case for TabNet then rests on its masks
+  (Chapter 11), and the write-up says so.
+- Manual search stays within 12 configurations per profile (HCEA §7.6), all
+  logged.
+
+## N24. Compare against the recorded TabNet runs  (from Chapter 7)
+
+The reported TabNet runs are in `experiments/chapter7_reference_runs.json`
+and in the Reported runs table of `docs/audits/chapter_7_audit.md`:
+
+| Profile / split | Run id | Registry |
+|---|---|---|
+| full / user | `20260927T162456Z-full-user-s42` | v0005 |
+| mid / user | `20260927T125702Z-mid-user-s42` | v0003 |
+| mid / time | `20260927T161717Z-mid-time-s42` | v0004 |
+
+- Chapter 16 compares against these score files with `app.evaluation.compare`
+  on the same rows, budgets and tie-break seed, with the harness check
+  passing, as for the baselines (N18). Do not retrain TabNet to get a
+  comparison number.
+- If TabNet is retrained for the record, add the run to the reference file
+  and the audit, and say why.
+
+## N25. The adopted TabNet is behaviour-only  (from Chapter 7)
+
+The reported TabNet models were trained with
+`--exclude-features psych_,peer_department_size`: the five psychometric
+columns and `peer_department_size` are not model inputs.
+
+- Any retrain meant to reproduce or replace a reported model passes the
+  same flag; without it the config, model_version and results differ.
+- The serving path needs nothing extra: the saved preprocessor picks its own
+  columns by name, so full matrix rows can be scored as they are.
+- Chapter 11 has no static trait to explain for TabNet. The Chapter 6
+  XGBoost was trained with all features; its top 10 by gain held no static
+  trait, but its explanations must still be checked for them (N22).
+
+## N26. TabNet trails XGBoost, and its model selection is noisy  (from Chapter 7)
+
+Test PR-AUC, primary view: full user 0.359 vs 0.828, mid user 0.220 vs
+0.843, mid time 0.888 vs 0.991. XGBoost is also higher on validation. Most
+of the gap is scenario 2; TabNet caught 0 of 2 scenario-3 test insiders at
+top-1 on the user split.
+
+- Chapter 8 decides which model is served and records why. The Bible names
+  TabNet primary, mainly for its masks (Chapter 11); the ranking evidence
+  favours XGBoost. Whatever is served is pinned by registry version (N21).
+- TabNet's validation PR-AUC swings by 0.1-0.2 between epochs and early
+  stopping keeps the peak, so its validation numbers are optimistic (mid
+  0.734 on validation, 0.220 on test). One run per configuration cannot
+  separate TabNet configurations: the static-trait ablation reversed order
+  between validation and test.
+- Chapter 16 runs several seeds per model and adds bootstrap intervals
+  before claiming more than "XGBoost ranks higher on all three splits".
+- The all-features model's mid test PR-AUC (0.509) was seen during tuning
+  (C7-9). Report it as a disclosure; do not use it to change the adopted
+  configuration.

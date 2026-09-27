@@ -21,6 +21,10 @@ turns test into a second validation set.
 Usage, from backend/:
     python ../scripts/inspect_scores.py --profile mid --run-id <id>
     python ../scripts/inspect_scores.py --profile mid --run-id <id> --model lof
+    python ../scripts/inspect_scores.py --profile mid --run-id <chapter 7 id> --results-dir ../experiments/results/chapter7
+
+A Chapter 7 metrics.json has the same shape as a Chapter 6 one, so TabNet
+runs are inspected the same way; its importances are mask-based, not gain.
 """
 from __future__ import annotations
 
@@ -109,9 +113,13 @@ def inspect(name: str, block: dict, part: str, matrix: pd.DataFrame, views, budg
             "pr_auc_new_insiders_only": _auc(y[unseen], s[unseen], average_precision_score),
             "chance_new_insiders_only": float(y[unseen].mean()) if unseen.any() else None,
         }
-    if name == "gbdt":
-        top = block["metadata"].get("top_features_by_gain", [])[:15]
+    if name in ("gbdt", "tabnet"):
+        # GBDT: XGBoost gain. TabNet (Chapter 7): aggregate attention mask,
+        # summed per base feature (value + missing indicator).
+        key = "top_features_by_gain" if name == "gbdt" else "top_features_by_mask"
+        top = block["metadata"].get(key, [])[:15]
         out["top_features_by_gain"] = top
+        out["importance_kind"] = "gain" if name == "gbdt" else "mask"
         out["static_traits_in_top10"] = [f for f, _ in top[:10] if f.startswith(STATIC_TRAITS)]
     if name == "lof":
         md = block["metadata"]
@@ -137,7 +145,9 @@ def _print(r: dict, part: str) -> None:
               f"{len(t['new_in_this_part'])} new ({t['positives_from_new']} positive days)")
         print(f"  PR-AUC on new insiders + benign only: {_fmt(t['pr_auc_new_insiders_only'])} (chance {_fmt(t['chance_new_insiders_only'], 4)})")
     if "top_features_by_gain" in r:
-        print("  top features by gain: " + ", ".join(f"{f} ({g:.0f})" for f, g in r["top_features_by_gain"][:10]))
+        kind = r.get("importance_kind", "gain")
+        fmt = (lambda g: f"{g:.0f}") if kind == "gain" else (lambda g: f"{g:.3f}")
+        print(f"  top features by {kind}: " + ", ".join(f"{f} ({fmt(g)})" for f, g in r["top_features_by_gain"][:10]))
         if r["static_traits_in_top10"]:
             print(f"  NOTE: static per-user traits in the top 10: {r['static_traits_in_top10']}")
     if "lof" in r:

@@ -1,0 +1,33 @@
+{
+  "description": "Reported Chapter 7 TabNet runs (CARRY_FORWARD N24). Chapter 8 serves a pinned registry version from here and Chapter 16 compares against these score files instead of retraining. Source: the Reported runs table in docs/audits/chapter_7_audit.md. If TabNet is ever retrained for the record, add the new run here and in the audit, and say why.",
+  "adopted_config": {
+    "settings": "HCEA v1.0 section 7.2 defaults, class_weighted_loss, early stopping on validation PR-AUC, seed 42, device cpu",
+    "exclude_features": "psych_,peer_department_size",
+    "why": "static-trait ablation, docs/audits/chapter_7_audit.md"
+  },
+  "score_root": "<CERT_PROCESSED_DIR>/scores/chapter7/<run_id>/tabnet.parquet",
+  "registry_root": "<MODEL_PATH>/tabnet/",
+  "runs": {
+    "full/user": {
+      "run_id": "20260927T162456Z-full-user-s42",
+      "registry_version": "v0005",
+      "model_version": "tabnet-chapter7-v1-e03b3d0d3360"
+    },
+    "mid/user": {
+      "run_id": "20260927T125702Z-mid-user-s42",
+      "registry_version": "v0003",
+      "model_version": "tabnet-chapter7-v1-5231a85c1c6f"
+    },
+    "mid/time": {
+      "run_id": "20260927T161717Z-mid-time-s42",
+      "registry_version": "v0004",
+      "model_version": "tabnet-chapter7-v1-02d79aff8e79"
+    }
+  },
+  "superseded": {
+    "20260927T114021Z-mid-user-s42": "v0001, all features including static traits; not adopted (static-trait ablation)"
+  },
+  "related": {
+    "20260927T121708Z-mid-user-s42": "v0002, static-trait ablation; same config and weights as the mid/user reference (125702Z completed from its checkpoints)"
+  }
+}

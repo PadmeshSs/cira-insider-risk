@@ -20,12 +20,14 @@ passes its checks.
 | 4 | Preprocessing and normalization | IMPLEMENTED |
 | 5 | Feature engineering (Stage 0-4) | IMPLEMENTED; dev, mid and full runs recorded |
 | 6 | Baselines: rule, Isolation Forest, LOF, LSTM autoencoder, XGBoost | IMPLEMENTED; verified on mid (user, time) and full (user) |
-| 7-16 | TabNet, CRI, MITRE, XAI, alerts, API, dashboard, evaluation | PLANNED |
+| 7 | TabNet, model registry, same-harness comparison with the baselines | IMPLEMENTED |
+| 8-16 | Scoring service, CRI, MITRE, XAI, alerts, API, dashboard, evaluation | PLANNED |
 | 17-18 | Kafka, Redis, Celery, SSE, OpenSearch, observability, K8s | NOT IMPLEMENTED (production extensions) |
 
-See `docs/audits/chapter_1_5_audit.md` and `docs/audits/chapter_6_audit.md` for the chapter reviews, and
+See `docs/audits/chapter_1_5_audit.md`, `docs/audits/chapter_6_audit.md` and `docs/audits/chapter_7_audit.md` for the chapter reviews, and
 `docs/CARRY_FORWARD.md` for the rules every later chapter must follow.
-Chapter 6 is described in `docs/chapters/chapter_6_baselines.md`.
+Chapter 6 is described in `docs/chapters/chapter_6_baselines.md`, Chapter 7
+in `docs/chapters/chapter_7_tabnet.md`.
 
 ## Running Chapter 5
 
@@ -65,6 +67,26 @@ python ../scripts/inspect_scores.py  --profile mid --run-id <run id>      # vali
 
 Design: `docs/chapters/chapter_6_baselines.md`. Results, the reported run
 ids and the verification record: `docs/audits/chapter_6_audit.md`.
+
+## Running Chapter 7
+
+After Chapter 6 (the TabNet run reuses its split file), from `backend/`:
+
+```bash
+python -m app.tabnet.train --profile mid --exclude-features psych_,peer_department_size
+python -m app.tabnet.train --profile mid --exclude-features psych_,peer_department_size --split time
+python ../scripts/verify_chapter7.py --profile mid --reload-models --permutation-test --baselines
+python -m app.evaluation.compare --profile mid --split user --run-id <run id>   # validation table
+```
+
+Each run writes scores to `<CERT_PROCESSED_DIR>/scores/chapter7/<run_id>/`,
+metrics to `experiments/results/chapter7/<run_id>/`, a new registry version
+under `models/saved_models/tabnet/` and one line to `experiments/runlog.jsonl`.
+Training checkpoints every epoch and resumes after an interruption; use
+`--fresh` for a from-scratch re-run. The reported models are behaviour-only,
+hence `--exclude-features` (N25); they are listed in
+`experiments/chapter7_reference_runs.json`. Design and run order:
+`docs/chapters/chapter_7_tabnet.md`; results: `docs/audits/chapter_7_audit.md`.
 
 ## Tests
 

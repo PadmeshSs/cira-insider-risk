@@ -1,0 +1,27 @@
+{
+  "description": "Reported Chapter 6 baseline runs (CARRY_FORWARD N18). Chapter 7 and Chapter 16 compare against these score files on the same split file and budgets instead of re-running the baselines. Source: the Reported runs table in docs/audits/chapter_6_audit.md. If a baseline is ever re-run for the record, change the run id here and in the audit, and say why.",
+  "score_root": "<CERT_PROCESSED_DIR>/scores/chapter6/<run_id>/<model>.parquet",
+  "runs": {
+    "full/user": {
+      "rule_based": "20260926T134214Z-full-user-s42",
+      "isolation_forest": "20260926T134214Z-full-user-s42",
+      "lof": "20260926T134214Z-full-user-s42",
+      "lstm_autoencoder": "20260927T094717Z-full-user-s42",
+      "gbdt": "20260926T134214Z-full-user-s42"
+    },
+    "mid/user": {
+      "rule_based": "20260926T124335Z-mid-user-s42",
+      "isolation_forest": "20260926T124335Z-mid-user-s42",
+      "lof": "20260926T124335Z-mid-user-s42",
+      "lstm_autoencoder": "20260927T094513Z-mid-user-s42",
+      "gbdt": "20260926T124335Z-mid-user-s42"
+    },
+    "mid/time": {
+      "rule_based": "20260926T125859Z-mid-time-s42",
+      "isolation_forest": "20260926T125859Z-mid-time-s42",
+      "lof": "20260926T125859Z-mid-time-s42",
+      "lstm_autoencoder": "20260927T094626Z-mid-time-s42",
+      "gbdt": "20260926T125859Z-mid-time-s42"
+    }
+  }
+}
