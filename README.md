@@ -18,12 +18,12 @@ passes its checks.
 | 3 | CERT r4.2 ingestion + ground-truth separation | IMPLEMENTED |
 | 3 | TWOS (secondary dataset) | PLANNED (access request pending) |
 | 4 | Preprocessing and normalization | IMPLEMENTED |
-| 5 | Feature engineering (Stage 0-4) | IMPLEMENTED; verified on dev and mid, full run pending |
-| 6 | Baselines: rule, Isolation Forest, LOF, LSTM autoencoder, XGBoost | PARTIALLY IMPLEMENTED; tested on synthetic data, mid/full runs pending |
+| 5 | Feature engineering (Stage 0-4) | IMPLEMENTED; dev, mid and full runs recorded |
+| 6 | Baselines: rule, Isolation Forest, LOF, LSTM autoencoder, XGBoost | IMPLEMENTED; verified on mid (user, time) and full (user) |
 | 7-16 | TabNet, CRI, MITRE, XAI, alerts, API, dashboard, evaluation | PLANNED |
 | 17-18 | Kafka, Redis, Celery, SSE, OpenSearch, observability, K8s | NOT IMPLEMENTED (production extensions) |
 
-See `docs/audits/chapter_1_5_audit.md` for the Chapter 1-5 review, and
+See `docs/audits/chapter_1_5_audit.md` and `docs/audits/chapter_6_audit.md` for the chapter reviews, and
 `docs/CARRY_FORWARD.md` for the rules every later chapter must follow.
 Chapter 6 is described in `docs/chapters/chapter_6_baselines.md`.
 
@@ -54,8 +54,17 @@ python -m app.baselines.run --profile mid --split time   # time-ordered check
 The first run writes the user split to `experiments/splits/`; later runs
 reuse it. Metrics go to `experiments/results/chapter6/<run_id>/metrics.json`
 (gitignored), one headline line per model to `experiments/runlog.jsonl`,
-scores to `<CERT_PROCESSED_DIR>/scores/chapter6/<run_id>/`. See
-`docs/chapters/chapter_6_baselines.md`.
+scores to `<CERT_PROCESSED_DIR>/scores/chapter6/<run_id>/`.
+
+Check and explain a run (the run id is printed at the end of each run):
+
+```bash
+python ../scripts/verify_chapter6.py --profile mid --run-id <run id> --reload-models --permutation-test
+python ../scripts/inspect_scores.py  --profile mid --run-id <run id>      # validation split
+```
+
+Design: `docs/chapters/chapter_6_baselines.md`. Results, the reported run
+ids and the verification record: `docs/audits/chapter_6_audit.md`.
 
 ## Tests
 

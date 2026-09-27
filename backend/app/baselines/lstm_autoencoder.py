@@ -133,6 +133,10 @@ class LSTMAutoencoderDetector(BaselineDetector):
         # Set by the runner from the feature file + split; part of the
         # checkpoint key so a resume never reuses weights from other data.
         config.setdefault("data_fingerprint", "")
+        # The shuffle order of epoch e depends only on (seed, e), so a run
+        # resumed from a checkpoint trains exactly like an uninterrupted one.
+        # Part of the config so the model version and checkpoint key change.
+        config.setdefault("shuffle", "per-epoch-seed")
         super().__init__(seed=seed, **config)
         self.mean: np.ndarray | None = None
         self.std: np.ndarray | None = None
@@ -257,6 +261,7 @@ class LSTMAutoencoderDetector(BaselineDetector):
         for epoch in range(start_epoch, int(self.config["max_epochs"])):
             if stale >= int(self.config["patience"]):
                 break
+            gen.manual_seed(self.seed + epoch)
             tr = self._epoch_loss(train_loader, True, optimiser, scaler)
             va = self._epoch_loss(val_loader, False) if val_loader is not None else tr
             self.history.append({"epoch": epoch, "train_loss": tr, "val_loss": va})

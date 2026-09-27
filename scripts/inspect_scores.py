@@ -2,9 +2,10 @@
 
 Answers questions the headline table cannot:
 
-* What kinds of user-days does a detector put in its daily top-k? A high
-  share of inactive days means it ranks "rare null pattern" or "quiet day",
-  not suspicious behaviour.
+* What kinds of user-days does a detector put in its daily top-k? The daily
+  budget fills weekends too, so about 2/7 of alerts land on weekends for any
+  model; the inactive-day share has the same structural floor. The median
+  scores per group and the active-days-only AUCs are the cleaner evidence.
 * Does it separate malicious days from benign ACTIVE days? Malicious days
   always have events, so comparing them with inactive days is too easy.
 * What is the best precision the daily budget allows? With ~1% positives,
@@ -166,7 +167,11 @@ def main(argv=None) -> None:
     results = [inspect(n, report["models"][n], args.part, matrix, views, report["budgets"], report["seed"], report["split"]) for n in names]
     for r in results:
         _print(r, args.part)
-    out = Path(args.results_dir) / args.run_id / f"inspection_{args.part}.json"
+    print("\nNote: a daily budget alerts k rows on every calendar day, weekends included, so about 2/7 of")
+    print("alerts land on weekends for any model, and weekend alerts are mostly inactive rows. Read the")
+    print("weekend and inactive shares against that floor, not against zero.")
+    suffix = args.model or "all"
+    out = Path(args.results_dir) / args.run_id / f"inspection_{args.part}_{suffix}.json"
     out.write_text(json.dumps(results, indent=2, default=str), encoding="utf-8")
     print(f"\nwritten: {out}")
 

@@ -79,3 +79,30 @@ def test_runs_on_cpu_when_cuda_requested_but_missing(data, monkeypatch):
     train, _ = data
     det = LSTMAutoencoderDetector(seed=0, **dict(FAST, device="cuda", max_epochs=1)).fit(train)
     assert det.metadata()["device_used"] == "cpu"
+
+
+def test_resumed_training_matches_uninterrupted_training(data, tmp_path, monkeypatch):
+    """Interrupt during epoch 3, resume, and end with the same model (R7)."""
+    import app.baselines.lstm_autoencoder as lstm
+
+    train, test = data
+    cfg = dict(FAST, max_epochs=5, patience=99, data_fingerprint="z")
+    straight = LSTMAutoencoderDetector(seed=0, **cfg).fit(train).raw_score(test)
+
+    real = lstm.LSTMAutoencoderDetector._epoch_loss
+    calls = {"n": 0}
+
+    def interrupt_on_third_training_epoch(self, loader, train_, *a, **k):
+        if train_:
+            calls["n"] += 1
+            if calls["n"] == 3:
+                raise KeyboardInterrupt
+        return real(self, loader, train_, *a, **k)
+
+    monkeypatch.setattr(lstm.LSTMAutoencoderDetector, "_epoch_loss", interrupt_on_third_training_epoch)
+    with pytest.raises(KeyboardInterrupt):
+        LSTMAutoencoderDetector(seed=0, checkpoint_dir=str(tmp_path), **cfg).fit(train)
+    monkeypatch.setattr(lstm.LSTMAutoencoderDetector, "_epoch_loss", real)
+    resumed = LSTMAutoencoderDetector(seed=0, checkpoint_dir=str(tmp_path), **cfg).fit(train)
+    assert resumed.metadata()["resumed_from_epoch"] == 1
+    assert np.allclose(straight, resumed.raw_score(test), atol=1e-7)

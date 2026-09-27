@@ -25,7 +25,11 @@ How to use it when prompting a chapter:
 | N11 one saved split | 7, 16 |
 | N12 causal scoring | 7, 8, 16, any sequence model |
 | N13 masquerade in training | 7, 16 |
-| N14 Chapter 6 status | 16, 19 |
+| N14 Chapter 6 status (RETIRED) | - |
+| N15 report per scenario | 7, 16, 19 (reporting) |
+| N16 time split: seen/new breakdown | 7, 16 |
+| N17 budget depends on profile | 7, 16 |
+| N18 baseline reference runs | 7, 16 |
 
 ---
 
@@ -169,6 +173,8 @@ malicious activity is benign. Unsupervised models see them, label-blind.
 
 ## N14. Chapter 6 is PARTIALLY IMPLEMENTED until real runs exist  (from Chapter 6)
 
+RETIRED (chapter 6, mid and full runs verified; see `docs/audits/chapter_6_audit.md`).
+
 The code is tested on synthetic data only. Chapter 6 becomes IMPLEMENTED
 when `experiments/runlog.jsonl` has `chapter6_baseline` lines for all five
 detectors at mid and full (user split; time split at least at mid). Until
@@ -177,3 +183,48 @@ pass `scripts/verify_chapter6.py` with 0 FAIL (the mid user-split run with
 `--reload-models --permutation-test`), with every WARN explained in the write-up. Report LOF numbers with
 `lof_fit_rows`, `pca_components` and `pca_retained_variance`, and say which
 profile every number came from (mid has ~28% insider users, full ~7%).
+
+## N15. Headline numbers are mostly scenario 2  (from Chapter 6 runs)
+
+Scenario 2 supplies 170 of the 190 test positives in the user split (157 of
+168 in the time split); scenario 3 has 4 test days. A single PR-AUC is
+therefore mostly a scenario-2 number.
+
+- Every model comparison, TabNet included, reports recall per scenario and
+  insiders caught per scenario next to the headline.
+- Do not claim anything about scenario 3 from 4 test days.
+
+## N16. Time-split results need the seen/new insider breakdown  (from Chapter 6 runs)
+
+In the time split the same people are in train and test, so a supervised
+model could be recognising insiders it has already seen. Any time-split
+result for a supervised model (TabNet included) is reported with the
+seen/new breakdown from `scripts/inspect_scores.py`. The user split stays
+the headline for insiders never seen in training.
+
+- Chapter 6 outcome: 12 of 14 time-split test insiders were new, and
+  XGBoost scored PR-AUC 0.994 on them, so recognition did not explain its
+  0.991 there. Why the time split scores above the user split (0.991 vs
+  0.843 at mid) is not established; do not state a reason without evidence.
+
+## N17. The daily budget means different things per profile  (from Chapter 6 runs)
+
+Test users: 44 at mid, 183 at full; the same 14 insiders in both. Top-5 per
+day at mid alerts on over 10% of users and saturates per-user detection
+(even the rules catch 14/14). Use top-1 when reading mid results; top-5 is
+informative at full. Precision@k is capped by the base rate; quote it with
+the ceiling printed by `inspect_scores.py`.
+
+## N18. Compare against the recorded baseline runs  (from Chapter 6)
+
+The reported baseline scores are the run ids in the "Reported runs" table of
+`docs/audits/chapter_6_audit.md`: rule, Isolation Forest, LOF and XGBoost
+from the first run of each profile/split, the LSTM autoencoder from its
+re-run after the resume fix. Chapter 7 (TabNet) and Chapter 16 compare
+against those score files on the same split file and the same budgets,
+rather than re-running the baselines with different code. If a baseline is
+ever re-run, record the new run id there and say why.
+
+- The LSTM's ranking moved noticeably with training order alone (full
+  ROC-AUC 0.862 vs 0.767 across the fix). Chapter 16 should use several
+  seeds before ranking it against models near it.

@@ -2,11 +2,12 @@
 
 Bible Chapter 6 / Architecture Phase 4, executed under HCEA v1.0 §6.
 
-Status: PARTIALLY IMPLEMENTED. The code runs and its 45 tests pass on
-synthetic CERT-shaped data (full suite: 129 passed, 1 skipped). No mid or
-full run has been done yet, so this document contains no results. It moves
-to IMPLEMENTED once the mid and full runs below are in
-`experiments/runlog.jsonl` (see N14).
+Status: IMPLEMENTED. All five baselines have run and passed
+`scripts/verify_chapter6.py` with 0 FAIL at mid (user and time split) and
+full (user split), including the reload, permutation, determinism and
+resume checks. Results, the reported run ids and the verification record
+are in `docs/audits/chapter_6_audit.md`. Full test suite: 130 passed,
+1 skipped.
 
 ## What was built
 
@@ -23,7 +24,8 @@ to IMPLEMENTED once the mid and full runs below are in
 | `backend/app/evaluation/labels.py` | Evaluation-only label loading and in-memory join (N1, N5) |
 | `backend/app/evaluation/splitting.py` | User split (saved) and time split (N3) |
 | `backend/app/evaluation/metrics.py` | PR-AUC, daily top-k budget metrics, per-scenario recall, per-user detection and latency (N2) |
-| `backend/tests/unit/test_ch6_*.py`, `backend/tests/integration/test_ch6_runner.py` | 45 tests |
+| `backend/tests/unit/test_ch6_*.py`, `backend/tests/integration/test_ch6_runner.py` | 46 tests |
+| `scripts/inspect_scores.py` | Explains a run on validation: median score per group, active-day-only AUCs, precision ceiling, alert composition, GBDT top features, seen/new insiders for the time split |
 | `scripts/verify_chapter6.py` | Post-run verification: every acceptance check as PASS / WARN / FAIL |
 | `backend/tests/fixtures/synthetic_ch6.py`, `synthetic_matrix.py` | Test fixtures only |
 
@@ -85,13 +87,17 @@ is fitted on at most 50,000 training rows sampled in proportion per user
 on a second sample of training rows LOF was not fitted on, because scoring
 the fit points of a novelty LOF is biased. `lof_fit_rows`,
 `pca_components` and `pca_retained_variance` are in the metadata and have
-to be reported next to every LOF number.
+to be reported next to every LOF number. On CERT r4.2 this LOF carries no
+usable signal: on validation it scores inactive days highest and is at
+chance on active days (ROC-AUC 0.50); see the audit.
 
 LSTM autoencoder (HCEA D-3). 36 core count/volume columns
 (`CORE_COLUMNS`), all with the Chapter 5 "zero" null policy; a null there
 raises. `log1p` then train mean/std. Window 30 days, training stride 7,
 windows cut lazily from one float32 array. Encoder and decoder LSTM, hidden
-64, one layer, batch 128, `num_workers=0`, AMP only on CUDA, Adam 1e-3, up to
+64, one layer, batch 128, `num_workers=0`, AMP only on CUDA, shuffle re-seeded
+every epoch from (seed, epoch) so a resumed run matches an uninterrupted one,
+Adam 1e-3, up to
 20 epochs with patience 3 on validation reconstruction loss (validation
 users' windows, no labels). A checkpoint is written every epoch and a re-run
 resumes from the latest one. The checkpoint key includes a fingerprint of
@@ -233,9 +239,11 @@ out-of-range label days under mid/full. Two regression tests cover this.
 ## Acceptance checklist
 
 - [x] All four mandatory baselines plus GBDT run end to end on one matrix and produce scores (synthetic data)
-- [ ] The same, on the mid profile (user split and time split)
-- [ ] The same, on the full profile
+- [x] The same, on the mid profile (user split and time split)
+- [x] The same, on the full profile
 - [x] Scores share TabNet's convention: [0, 1], higher = more anomalous, `model_version` on every row
 - [x] Each baseline persists model, config, profile, seed, wall-clock, peak RSS (HCEA §6.3)
 - [x] No baseline result appears in any document without a run behind it
-- [ ] `scripts/verify_chapter6.py` shows 0 FAIL for mid (user and time) and full (user)
+- [x] `scripts/verify_chapter6.py` shows 0 FAIL for mid (user and time) and full (user)
+- [x] LSTM re-run with the resume fix for those three runs, verified
+- [x] Permutation test on the full profile (and on the mid time split)

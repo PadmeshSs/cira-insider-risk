@@ -177,3 +177,9 @@ reports/generated/
 # Local backups written by scripts/apply_ch5_fixes.py
 # ------------------------------------------------------------
 .ch5_fix_backup/
+
+# ------------------------------------------------------------
+# Patch files handed over for review (apply, then delete; never commit)
+# ------------------------------------------------------------
+/*.patch
+/*.zip
