@@ -1,0 +1,358 @@
+{
+  "chapter": 8,
+  "decided_at": "2026-09-28T19:48:48+00:00",
+  "part_used": "validation",
+  "rule": {
+    "version": "c8-serving-rule-v1",
+    "criterion": "validation PR-AUC, primary view",
+    "decisive": "full/user",
+    "consistency": [
+      "mid/user",
+      "mid/time"
+    ],
+    "margin": 0.1,
+    "default": "tabnet",
+    "served_profile": "full",
+    "text": "Serve XGBoost only if its validation PR-AUC exceeds TabNet's by more than 0.10 on full/user and it is also ahead on mid/user and mid/time; otherwise serve TabNet. A candidate that fails a gate (registered + sha256, reportable, full profile, behaviour-only) cannot be served."
+  },
+  "candidates": {
+    "tabnet": {
+      "full/user": {
+        "model_name": "tabnet",
+        "registry_version": "v0005",
+        "model_version": "tabnet-chapter7-v1-e03b3d0d3360",
+        "run_id": "20260927T162456Z-full-user-s42",
+        "profile": "full"
+      },
+      "mid/user": {
+        "model_name": "tabnet",
+        "registry_version": "v0003",
+        "model_version": "tabnet-chapter7-v1-5231a85c1c6f",
+        "run_id": "20260927T125702Z-mid-user-s42",
+        "profile": "mid"
+      },
+      "mid/time": {
+        "model_name": "tabnet",
+        "registry_version": "v0004",
+        "model_version": "tabnet-chapter7-v1-02d79aff8e79",
+        "run_id": "20260927T161717Z-mid-time-s42",
+        "profile": "mid"
+      }
+    },
+    "gbdt": {
+      "full/user": {
+        "model_name": "gbdt",
+        "registry_version": "v0003",
+        "model_version": "gbdt-chapter8-v1-077a3dae6cee",
+        "run_id": "20260928T194711Z-full-user-s42",
+        "profile": "full"
+      },
+      "mid/user": {
+        "model_name": "gbdt",
+        "registry_version": "v0001",
+        "model_version": "gbdt-chapter8-v1-077a3dae6cee",
+        "run_id": "20260928T194650Z-mid-user-s42",
+        "profile": "mid"
+      },
+      "mid/time": {
+        "model_name": "gbdt",
+        "registry_version": "v0002",
+        "model_version": "gbdt-chapter8-v1-077a3dae6cee",
+        "run_id": "20260928T194701Z-mid-time-s42",
+        "profile": "mid"
+      }
+    }
+  },
+  "gates": {
+    "tabnet": {
+      "ok": true,
+      "checks": {
+        "sha256_verified": true,
+        "reportable": true,
+        "trained_on_served_profile": true,
+        "behaviour_only": true
+      },
+      "problems": [],
+      "static_inputs": [],
+      "n_input_columns": 106
+    },
+    "gbdt": {
+      "ok": true,
+      "checks": {
+        "sha256_verified": true,
+        "reportable": true,
+        "trained_on_served_profile": true,
+        "behaviour_only": true
+      },
+      "problems": [],
+      "static_inputs": [],
+      "n_input_columns": 106
+    }
+  },
+  "evidence": {
+    "full/user": {
+      "rows": 89018,
+      "positives": 202,
+      "chance_pr_auc": 0.002269203981217282,
+      "precision_ceiling": {
+        "1": 0.28,
+        "5": 0.0808,
+        "10": 0.0404
+      },
+      "runs": {
+        "tabnet": {
+          "model_name": "tabnet",
+          "registry_version": "v0005",
+          "model_version": "tabnet-chapter7-v1-e03b3d0d3360",
+          "run_id": "20260927T162456Z-full-user-s42",
+          "profile": "full"
+        },
+        "gbdt": {
+          "model_name": "gbdt",
+          "registry_version": "v0003",
+          "model_version": "gbdt-chapter8-v1-077a3dae6cee",
+          "run_id": "20260928T194711Z-full-user-s42",
+          "profile": "full"
+        },
+        "gbdt_ch6_all_feat": {
+          "run_id": "20260926T134214Z-full-user-s42"
+        }
+      },
+      "models": {
+        "tabnet": {
+          "model_version": "tabnet-chapter7-v1-e03b3d0d3360",
+          "pr_auc": 0.7493493794484459,
+          "roc_auc_secondary": 0.9736247739235282,
+          "recall_at_1": 0.5495049504950495,
+          "insiders_caught_at_1": "12/14",
+          "caught_by_scenario_at_1": {
+            "1": "6/6",
+            "2": "6/6",
+            "3": "0/2"
+          },
+          "recall_by_scenario_at_1": {
+            "1": "14/19",
+            "2": "97/179",
+            "3": "0/4"
+          }
+        },
+        "gbdt": {
+          "model_version": "gbdt-chapter8-v1-077a3dae6cee",
+          "pr_auc": 0.9154972106230234,
+          "roc_auc_secondary": 0.9991096288065124,
+          "recall_at_1": 0.6633663366336634,
+          "insiders_caught_at_1": "9/14",
+          "caught_by_scenario_at_1": {
+            "1": "3/6",
+            "2": "5/6",
+            "3": "1/2"
+          },
+          "recall_by_scenario_at_1": {
+            "1": "7/19",
+            "2": "125/179",
+            "3": "2/4"
+          }
+        },
+        "gbdt_ch6_all_feat": {
+          "model_version": "gbdt-chapter6-v1-83b20996fcf3",
+          "pr_auc": 0.9390126610227025,
+          "roc_auc_secondary": 0.9995023084771096,
+          "recall_at_1": 0.6782178217821783,
+          "insiders_caught_at_1": "9/14",
+          "caught_by_scenario_at_1": {
+            "1": "3/6",
+            "2": "5/6",
+            "3": "1/2"
+          },
+          "recall_by_scenario_at_1": {
+            "1": "6/19",
+            "2": "129/179",
+            "3": "2/4"
+          }
+        }
+      }
+    },
+    "mid/user": {
+      "rows": 19809,
+      "positives": 202,
+      "chance_pr_auc": 0.010197385027007925,
+      "precision_ceiling": {
+        "1": 0.28,
+        "5": 0.08086469175340272,
+        "10": 0.0404971932638332
+      },
+      "runs": {
+        "tabnet": {
+          "model_name": "tabnet",
+          "registry_version": "v0003",
+          "model_version": "tabnet-chapter7-v1-5231a85c1c6f",
+          "run_id": "20260927T125702Z-mid-user-s42",
+          "profile": "mid"
+        },
+        "gbdt": {
+          "model_name": "gbdt",
+          "registry_version": "v0001",
+          "model_version": "gbdt-chapter8-v1-077a3dae6cee",
+          "run_id": "20260928T194650Z-mid-user-s42",
+          "profile": "mid"
+        },
+        "gbdt_ch6_all_feat": {
+          "run_id": "20260926T124335Z-mid-user-s42"
+        }
+      },
+      "models": {
+        "tabnet": {
+          "model_version": "tabnet-chapter7-v1-5231a85c1c6f",
+          "pr_auc": 0.7336352571019199,
+          "roc_auc_secondary": 0.9698319502986152,
+          "recall_at_1": 0.6188118811881188,
+          "insiders_caught_at_1": "12/14",
+          "caught_by_scenario_at_1": {
+            "1": "5/6",
+            "2": "6/6",
+            "3": "1/2"
+          },
+          "recall_by_scenario_at_1": {
+            "1": "11/19",
+            "2": "113/179",
+            "3": "1/4"
+          }
+        },
+        "gbdt": {
+          "model_version": "gbdt-chapter8-v1-077a3dae6cee",
+          "pr_auc": 0.9320552436856985,
+          "roc_auc_secondary": 0.9983068281837109,
+          "recall_at_1": 0.6683168316831684,
+          "insiders_caught_at_1": "10/14",
+          "caught_by_scenario_at_1": {
+            "1": "3/6",
+            "2": "6/6",
+            "3": "1/2"
+          },
+          "recall_by_scenario_at_1": {
+            "1": "7/19",
+            "2": "126/179",
+            "3": "2/4"
+          }
+        },
+        "gbdt_ch6_all_feat": {
+          "model_version": "gbdt-chapter6-v1-83b20996fcf3",
+          "pr_auc": 0.9234677721712551,
+          "roc_auc_secondary": 0.9978561404873082,
+          "recall_at_1": 0.6683168316831684,
+          "insiders_caught_at_1": "10/14",
+          "caught_by_scenario_at_1": {
+            "1": "3/6",
+            "2": "6/6",
+            "3": "1/2"
+          },
+          "recall_by_scenario_at_1": {
+            "1": "7/19",
+            "2": "126/179",
+            "3": "2/4"
+          }
+        }
+      }
+    },
+    "mid/time": {
+      "rows": 5677,
+      "positives": 76,
+      "chance_pr_auc": 0.013387352474898714,
+      "precision_ceiling": {
+        "1": 0.6774193548387096,
+        "5": 0.4838709677419355,
+        "10": 0.24516129032258063
+      },
+      "runs": {
+        "tabnet": {
+          "model_name": "tabnet",
+          "registry_version": "v0004",
+          "model_version": "tabnet-chapter7-v1-02d79aff8e79",
+          "run_id": "20260927T161717Z-mid-time-s42",
+          "profile": "mid"
+        },
+        "gbdt": {
+          "model_name": "gbdt",
+          "registry_version": "v0002",
+          "model_version": "gbdt-chapter8-v1-077a3dae6cee",
+          "run_id": "20260928T194701Z-mid-time-s42",
+          "profile": "mid"
+        },
+        "gbdt_ch6_all_feat": {
+          "run_id": "20260926T125859Z-mid-time-s42"
+        }
+      },
+      "models": {
+        "tabnet": {
+          "model_version": "tabnet-chapter7-v1-02d79aff8e79",
+          "pr_auc": 0.9465324304326195,
+          "roc_auc_secondary": 0.9817173155169658,
+          "recall_at_1": 0.27631578947368424,
+          "insiders_caught_at_1": "2/8",
+          "caught_by_scenario_at_1": {
+            "1": "0/2",
+            "2": "2/6"
+          },
+          "recall_by_scenario_at_1": {
+            "1": "0/7",
+            "2": "21/69"
+          }
+        },
+        "gbdt": {
+          "model_version": "gbdt-chapter8-v1-077a3dae6cee",
+          "pr_auc": 0.9856051091990451,
+          "roc_auc_secondary": 0.9996194288613875,
+          "recall_at_1": 0.27631578947368424,
+          "insiders_caught_at_1": "3/8",
+          "caught_by_scenario_at_1": {
+            "1": "0/2",
+            "2": "3/6"
+          },
+          "recall_by_scenario_at_1": {
+            "1": "0/7",
+            "2": "21/69"
+          }
+        },
+        "gbdt_ch6_all_feat": {
+          "model_version": "gbdt-chapter6-v1-83b20996fcf3",
+          "pr_auc": 0.9892201493805552,
+          "roc_auc_secondary": 0.999734539884795,
+          "recall_at_1": 0.27631578947368424,
+          "insiders_caught_at_1": "4/8",
+          "caught_by_scenario_at_1": {
+            "1": "0/2",
+            "2": "4/6"
+          },
+          "recall_by_scenario_at_1": {
+            "1": "0/7",
+            "2": "21/69"
+          }
+        }
+      }
+    }
+  },
+  "outcome": {
+    "served": {
+      "model_name": "gbdt",
+      "registry_version": "v0003",
+      "model_version": "gbdt-chapter8-v1-077a3dae6cee",
+      "run_id": "20260928T194711Z-full-user-s42",
+      "profile": "full"
+    },
+    "shadow": {
+      "model_name": "tabnet",
+      "registry_version": "v0005",
+      "model_version": "tabnet-chapter7-v1-e03b3d0d3360",
+      "run_id": "20260927T162456Z-full-user-s42",
+      "profile": "full"
+    },
+    "reason": "XGBoost leads by 0.166 on full/user validation PR-AUC (> 0.1) and is ahead on mid/user (+0.198), mid/time (+0.039)",
+    "difference_decisive": 0.16614783117457743,
+    "difference_consistency": {
+      "mid/user": 0.19841998658377857,
+      "mid/time": 0.03907267876642562
+    },
+    "deviation": "C8-1"
+  },
+  "superseded": []
+}

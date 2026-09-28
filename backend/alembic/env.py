@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.core.config import settings
 from app.database.base import Base
-from app.database.models import Configuration, User
+from app.database.models import Configuration, User  # noqa: F401  (registers ORM tables for autogenerate)
 
 
 config = context.config

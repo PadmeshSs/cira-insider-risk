@@ -38,6 +38,12 @@ How to use it when prompting a chapter:
 | N24 Chapter 7 reference runs | 8, 16 |
 | N25 adopted TabNet is behaviour-only | 7 (re-runs), 8, 11, 16 |
 | N26 TabNet trails XGBoost; noisy selection | 8, 11, 16, 19 (reporting) |
+| N27 Chapter 8 status (RETIRED) | - |
+| N28 the served model is decided once, by rule | 9, 11, 12, 13, 14, 16 |
+| N29 CRI is tied to the served model_version | 9, 16 |
+| N30 explanations come from the served model | 11, 14 |
+| N31 in-sample scores are not detections | 12, 14, 15, 16 |
+| N32 shadow scores never feed CRI or alerts | 9, 12, 13, 14 |
 
 ---
 
@@ -283,6 +289,10 @@ replaced, and every file has a sha256 in `registry.jsonl`.
   (`v000N`), not "latest".
 - Every stored score carries `model_version`; lineage from an alert back to
   the artifact goes model_version -> registry entry -> files.
+- (Chapter 8) The same rules cover `models/saved_models/gbdt/`, where the
+  behaviour-only XGBoost is registered. Serving goes through
+  `app.scoring.adapters.load_adapter`, which uses the same registry class
+  and sha256 check for both models.
 
 ## N22. The model's input columns are not the matrix's columns  (from Chapter 7)
 
@@ -363,3 +373,76 @@ top-1 on the user split.
 - The all-features model's mid test PR-AUC (0.509) was seen during tuning
   (C7-9). Report it as a disclosure; do not use it to change the adopted
   configuration.
+
+## N27. Chapter 8 is PARTIALLY IMPLEMENTED until real runs exist  (from Chapter 8)
+
+RETIRED (chapter 8, runs verified; see `docs/audits/chapter_8_audit.md`).
+
+The scoring code is tested on synthetic data only. Chapter 8 becomes
+IMPLEMENTED when all of the following hold:
+
+- `experiments/runlog.jsonl` has `chapter8_gbdt_candidate` lines for mid /
+  user, mid / time and full / user, each passing
+  `scripts/verify_chapter8.py --candidate-run-id <run> --permutation-test
+  --no-decision` with 0 FAIL;
+- `experiments/chapter8_serving_decision.json` is written by
+  `python -m app.scoring.select` and committed;
+- `experiments/chapter8_test_readout.json` is written once;
+- a full batch run passes `scripts/verify_chapter8.py --profile full` with
+  0 FAIL, and `/health` shows the decided model on the development machine;
+- `docs/audits/chapter_8_audit.md` explains every WARN.
+
+Until then no model is served and no Chapter 8 number is quoted. Mark this
+note RETIRED when that is done.
+
+## N28. The served model is decided once, by a rule fixed in advance  (from Chapter 8)
+
+Rule `c8-serving-rule-v1` (`app/scoring/select.py`,
+`docs/chapters/chapter_8_scoring.md`): serve the behaviour-only XGBoost only
+if its validation PR-AUC beats TabNet's by more than 0.10 on full / user
+and it is also ahead on mid / user and mid / time; otherwise serve TabNet.
+Both must pass the gates (registered with sha256, reportable, full profile,
+behaviour-only).
+
+- The decision file is the only source of the served pin. Rolling back
+  with `CIRA_SERVED_MODEL` is allowed and is visible in `/health` and the
+  batch runlog, but it is not a new decision.
+- Changing the served model needs `select --supersede "<reason>"` and a
+  line in the audit. Never change it because of a test number.
+- If XGBoost is served, the write-up says TabNet was built, evaluated and
+  kept in shadow, and that the served detector is XGBoost (deviation C8-1).
+
+## N29. CRI thresholds belong to one served model_version  (from Chapter 8)
+
+TabNet's and XGBoost's scores have different distributions, although both
+are in [0, 1] and both are ranking scores (N20). Chapter 9 records the
+served `model_version` next to its weights and severity thresholds. A
+change of served model means re-deriving them, not reusing them.
+
+## N30. Explanations come from the served model only  (from Chapter 8)
+
+Chapter 11 explains the model whose score produced the alert. If TabNet is
+served, its masks are primary and KernelSHAP corroborates, as planned. If
+XGBoost is served, TreeSHAP on XGBoost is the model-side explanation, and
+TabNet's masks must not be presented as the reason for an XGBoost score.
+They can appear only as a clearly labelled second model's view, if at all.
+
+## N31. Scores on training rows are in-sample  (from Chapter 8)
+
+The batch file tags every row with `model_split` from the served model's own
+split file. Rows tagged `train` were scored by a model that saw their labels.
+
+- Never quote detection, precision or insiders caught from them.
+- Chapter 12's demo sample and the dashboard's example alerts come from
+  `validation` or `test` users. Test users are preferred, since validation
+  chose the model.
+- `python -m app.scoring.batch --rows evaluation` writes a file without
+  `train` rows.
+
+## N32. Shadow scores are for comparison only  (from Chapter 8)
+
+The candidate not served is the shadow (`role = "shadow"` in the batch
+file, `status()["shadow"]` in the API). Shadow scores go to Chapter 16 and
+to monitoring of disagreement between the two models. They never feed CRI,
+alerts, explanations or the analyst's queue, and there is no ensemble of the
+two (C8-4).

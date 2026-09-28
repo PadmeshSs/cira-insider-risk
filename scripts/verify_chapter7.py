@@ -414,7 +414,6 @@ def _permutation(c: "Checks", args, md: dict, matrix: pd.DataFrame, labels: pd.D
     active = matrix["is_active_day"].fillna(0).to_numpy()[te] > 0 if "is_active_day" in matrix else np.ones(len(te), bool)
     chance = float(y_te.mean())
     chance_act = float(y_te[active].mean()) if active.any() else float("nan")
-    strict = max(3 * chance, chance + 0.02)
     cfg = {k: v for k, v in md["config"].items() if k not in ("checkpoint_dir", "max_epochs", "pretrain")}
 
     def fit_score(y_fit: np.ndarray, epochs: int, seed: int) -> tuple[float, float]:

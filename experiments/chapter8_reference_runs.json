@@ -1,0 +1,46 @@
+{
+  "description": "Reported Chapter 8 runs (CARRY_FORWARD N27, N28). The behaviour-only XGBoost candidates, the serving decision and the batch run the sign-off verified. Chapter 9 and Chapter 16 use these; if anything is re-run for the record, change it here and in docs/audits/chapter_8_audit.md.",
+  "gbdt_candidates": {
+    "mid/user": {
+      "run_id": "20260928T194650Z-mid-user-s42",
+      "registry_version": "v0001",
+      "model_version": "gbdt-chapter8-v1-077a3dae6cee"
+    },
+    "mid/time": {
+      "run_id": "20260928T194701Z-mid-time-s42",
+      "registry_version": "v0002",
+      "model_version": "gbdt-chapter8-v1-077a3dae6cee"
+    },
+    "full/user": {
+      "run_id": "20260928T194711Z-full-user-s42",
+      "registry_version": "v0003",
+      "model_version": "gbdt-chapter8-v1-077a3dae6cee"
+    }
+  },
+  "decision": {
+    "file": "experiments/chapter8_serving_decision.json",
+    "sha256": "8ff92939fb89900269e6d0ae562338ac4f3f453573a3abd902508f999ae06d1c",
+    "rule": "c8-serving-rule-v1",
+    "served": {
+      "model_name": "gbdt",
+      "registry_version": "v0003",
+      "model_version": "gbdt-chapter8-v1-077a3dae6cee",
+      "run_id": "20260928T194711Z-full-user-s42",
+      "profile": "full"
+    },
+    "shadow": {
+      "model_name": "tabnet",
+      "registry_version": "v0005",
+      "model_version": "tabnet-chapter7-v1-e03b3d0d3360",
+      "run_id": "20260927T162456Z-full-user-s42",
+      "profile": "full"
+    },
+    "deviation": "C8-1"
+  },
+  "test_readout": {
+    "file": "experiments/chapter8_test_readout.json",
+    "sha256": "5a2951b8c49d5fc72c313146d65fdcfed5f1edc0ba47b93192d851672a9e9b0a"
+  },
+  "batch_run_id": "20260928T194858Z-full-batch",
+  "batch_output": "<CERT_PROCESSED_DIR>/scores/chapter8/<batch_run_id>/anomaly_scores.parquet"
+}

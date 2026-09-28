@@ -21,13 +21,15 @@ passes its checks.
 | 5 | Feature engineering (Stage 0-4) | IMPLEMENTED; dev, mid and full runs recorded |
 | 6 | Baselines: rule, Isolation Forest, LOF, LSTM autoencoder, XGBoost | IMPLEMENTED; verified on mid (user, time) and full (user) |
 | 7 | TabNet, model registry, same-harness comparison with the baselines | IMPLEMENTED |
-| 8-16 | Scoring service, CRI, MITRE, XAI, alerts, API, dashboard, evaluation | PLANNED |
+| 8 | Anomaly scoring service, served-model decision, batch scoring, API model loading | IMPLEMENTED; serving gbdt v0003 |
+| 9-16 | CRI, MITRE, XAI, alerts, API, dashboard, evaluation | PLANNED |
 | 17-18 | Kafka, Redis, Celery, SSE, OpenSearch, observability, K8s | NOT IMPLEMENTED (production extensions) |
 
-See `docs/audits/chapter_1_5_audit.md`, `docs/audits/chapter_6_audit.md` and `docs/audits/chapter_7_audit.md` for the chapter reviews, and
+See `docs/audits/chapter_1_5_audit.md`, `docs/audits/chapter_6_audit.md` and `docs/audits/chapter_7_audit.md` and `docs/audits/chapter_8_audit.md` for the chapter reviews, and
 `docs/CARRY_FORWARD.md` for the rules every later chapter must follow.
 Chapter 6 is described in `docs/chapters/chapter_6_baselines.md`, Chapter 7
-in `docs/chapters/chapter_7_tabnet.md`.
+in `docs/chapters/chapter_7_tabnet.md`, Chapter 8 in
+`docs/chapters/chapter_8_scoring.md`.
 
 ## Running Chapter 5
 
@@ -87,6 +89,36 @@ Training checkpoints every epoch and resumes after an interruption; use
 hence `--exclude-features` (N25); they are listed in
 `experiments/chapter7_reference_runs.json`. Design and run order:
 `docs/chapters/chapter_7_tabnet.md`; results: `docs/audits/chapter_7_audit.md`.
+
+## Running Chapter 8
+
+Chapter 8 chooses the served model between TabNet and a behaviour-only
+XGBoost, using a rule fixed in advance and applied on validation. It then
+serves that model. The whole real-data sign-off is one resumable command,
+from `backend/`:
+
+```bash
+python ../scripts/signoff_chapter8.py              # stops at the first FAIL; re-run after a fix
+python ../scripts/signoff_chapter8.py --finalize   # after explaining every WARN in the audit draft
+```
+
+The same steps by hand:
+
+```bash
+python -m app.scoring.gbdt_candidate --profile full        # also --profile mid, and mid --split time
+python ../scripts/verify_chapter8.py --profile full --candidate-run-id <run id> --permutation-test --no-decision
+python -m app.scoring.select --gbdt full/user=<run> --gbdt mid/user=<run> --gbdt mid/time=<run>
+python -m app.scoring.select --report-test                  # once, after the decision
+python -m app.scoring.batch --profile full --with-shadow
+python ../scripts/verify_chapter8.py --profile full --candidate-run-id <full user run>
+```
+
+The decision goes to `experiments/chapter8_serving_decision.json` (commit
+it). The API loads the decided model once at startup, on CPU, and
+`/health` reports it. Batch scores go to
+`<CERT_PROCESSED_DIR>/scores/chapter8/<batch_run_id>/`. Rows tagged
+`model_split=train` are in-sample (N31). Design, the rule and the full run
+order: `docs/chapters/chapter_8_scoring.md`.
 
 ## Tests
 
