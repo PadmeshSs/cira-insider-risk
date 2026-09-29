@@ -1,0 +1,15 @@
+{
+  "description": "Reported Chapter 9 runs (CARRY_FORWARD N38). Chapter 12 loads risk scores from this run; Chapter 16's ablations C/D recombine its components. If anything is re-run for the record, change it here and in docs/audits/chapter_9_audit.md.",
+  "served": {
+    "model_name": "gbdt",
+    "registry_version": "v0003",
+    "model_version": "gbdt-chapter8-v1-077a3dae6cee",
+    "run_id": "20260928T194711Z-full-user-s42",
+    "profile": "full"
+  },
+  "chapter8_batch_run_id": "20260928T194858Z-full-batch",
+  "calibration_id": "20260929T095921Z-full-cri",
+  "cri_run_id": "20260929T095927Z-full-cri-default",
+  "validation_readout": "chapter9_validation_readout.json",
+  "recorded_at": "2026-09-29T09:59:53+00:00"
+}

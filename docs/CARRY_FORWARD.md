@@ -44,6 +44,14 @@ How to use it when prompting a chapter:
 | N30 explanations come from the served model | 11, 14 |
 | N31 in-sample scores are not detections | 12, 14, 15, 16 |
 | N32 shadow scores never feed CRI or alerts | 9, 12, 13, 14 |
+| N33 CRI rarity is calibrated per served model_version | 9, 10, 11, 12, 13, 16 |
+| N34 CRI and anomaly score stay separate values | 11, 12, 13, 14 |
+| N35 unavailable components are excluded, never imputed | 10, 12, 16 |
+| N36 user_context lifts scenario 3 by construction | 16, 19 (reporting) |
+| N37 CRI weights fixed a priori; CRI test readout is Chapter 16 | 16, 19 (reporting) |
+| N38 Chapter 9 status (RETIRED) | - |
+| N39 bands are global; budgets are per day | 12, 14, 16 |
+| N40 the default CRI ranks below the anomaly score (validation) | 12, 14, 16, 19 (reporting) |
 
 ---
 
@@ -446,3 +454,122 @@ file, `status()["shadow"]` in the API). Shadow scores go to Chapter 16 and
 to monitoring of disagreement between the two models. They never feed CRI,
 alerts, explanations or the analyst's queue, and there is no ensemble of the
 two (C8-4).
+
+## N33. CRI rarity is calibrated per served model_version  (from Chapter 9)
+
+Every CRI component is a rarity against a label-free reference: the served
+model's validation user-days from its Chapter 8 batch (`app/cri/calibration.py`).
+The calibration is pinned in `experiments/chapter9_cri_calibration.json` with
+sha256 and names the model_version it was fitted for.
+
+- The engine refuses scores from any other model_version, and shadow rows.
+  A change of served model (including a `CIRA_SERVED_MODEL` rollback to
+  TabNet) needs `python -m app.cri.calibrate --supersede "<reason>"` and a new
+  validation readout. This is how N29 is met: the band numbers stay, the
+  reference behind them is refitted.
+- Never fit a reference on train rows (in-sample, N31) or test rows (N11).
+- `CRI_RARITY_DECADES` is part of the definition; changing it means refitting.
+- Chapter 10 must deliver `mitre_context` in [0, 1] (0 = no mapped
+  technique, null = not evaluated). Adding it changes the effective weights
+  and the config hash, so the result is a new CRI configuration whose
+  validation effect belongs to Chapter 16's ablation D.
+
+## N34. The CRI and the anomaly score stay separate values  (from Chapter 9)
+
+Risk rows carry `anomaly_score` unchanged next to `cri_score`, with
+`model_version`, `calibration_id`, `cri_config_hash` and `source_batch_run_id`
+(Architecture §14, §37).
+
+- Chapter 12 persists both (`AnomalyScore` and `RiskScore`) and never
+  derives one from the other.
+- Chapter 11 explains the CRI from `points_<component>`,
+  `historical_top_feature`, `peer_top_feature` and `role`, and the model side
+  from the served model only (N30). A CRI point is not a model reason.
+- The dashboard never labels either number a probability (N20).
+
+## N35. Unavailable components are excluded, never imputed  (from Chapter 9)
+
+CERT r4.2 has no asset criticality (N9), and MITRE is Chapter 10. A component
+the deployment cannot provide is removed from the formula and the weights
+are renormalised over the rest; the reason is written into every risk run's
+meta. A per-row null of an available component contributes 0 and does not
+inflate the other weights.
+
+- `assets.criticality` is never filled from CERT. A criticality must carry
+  its source (check constraint).
+- A report that compares CRI runs states which components were available.
+
+## N36. user_context lifts scenario 3 by construction  (from Chapter 9)
+
+The default privileged role is `ITAdmin`, chosen from the role name. r4.2
+scenario 3 is a system administrator, so this component raises scenario-3
+insiders because of how the dataset was built.
+
+- Never cite a scenario-3 improvement from user_context as evidence; report
+  the `no_user_context` ablation next to it.
+- The calibration report states how many users and what share of user-days
+  the role covers; quote it when discussing false positives among admins.
+
+## N37. CRI weights are fixed a priori; its test readout is Chapter 16  (from Chapter 9)
+
+The default weights (0.60 / 0.15 / 0.10 / 0.05 / 0.10, asset 0.00) were
+written before any CRI number existed. Chapter 9 reads the CRI on validation
+only, once (`experiments/chapter9_validation_readout.json`).
+
+- Guard `c9-cri-guard-v1` WARNs on any validation loss against the anomaly
+  score. A WARN is explained in the audit; it is not a reason to retune.
+- Any later weight change is a new configuration with its own hash, recorded
+  with the reason it was made and whether validation numbers informed it.
+- The Chapter 9 sign-off stops at preflight if any `CRI_*` value in `.env`
+  or the environment differs from the code defaults; a deliberate change is
+  made in `backend/app/cri/config.py` with a reason, never through `.env`.
+- The CRI is first read on test in Chapter 16 (ablation C), once.
+
+## N38. Chapter 9 is PARTIALLY IMPLEMENTED until real runs exist  (from Chapter 9)
+
+RETIRED (chapter 9, runs verified; see `docs/audits/chapter_9_audit.md`).
+
+The CRI code is tested on synthetic data only. Chapter 9 becomes IMPLEMENTED
+when `python ../scripts/signoff_chapter9.py` runs green on the full profile
+without the tests-only flags, and `docs/audits/chapter_9_audit.md` explains
+every WARN; `--finalize` then marks this note RETIRED. Until then no CRI
+number is quoted anywhere.
+
+## N39. Severity bands are global; the analyst budget is per day  (from Chapter 9)
+
+A band is a fixed CRI threshold on every day; the Chapter 6-8 budget is the
+top-k user-days of each day. They answer different questions and can
+disagree on quiet or busy days.
+
+- Chapter 12's alert policy says which it uses (band, per-day top-k, or
+  both) and reports alerts per day for it.
+- Chapter 16 reports both views for every CRI variant.
+
+## N40. The default CRI ranks below the anomaly score on validation  (from Chapter 9 runs)
+
+Full / user validation, primary view (`experiments/chapter9_validation_readout.json`):
+PR-AUC 0.915 for the served anomaly score against 0.694 for the default CRI.
+Leave-one-out: without peer deviation 0.824, without user context 0.822,
+without historical deviation 0.653. Insiders caught at top-1 went from 9/14
+to 11/14; scenario-1 days at top-1 from 7/19 to 9/19; scenario-2 days from
+125/179 to 110/179.
+
+- Peer deviation and user context are what lower the ranking; removing
+  either recovers most of the loss. Historical deviation is the one
+  component whose removal makes the CRI worse.
+- The scenario-1 gain is consistent with the Chapter 9 hypothesis (the
+  historical component recovers some of what XGBoost misses and TabNet
+  finds), but it is two days and two insiders out of six; descriptive only.
+  TabNet's anomaly score still does better on scenario 1 (14/19, 6/6).
+- user_context produced no scenario-3 gain on validation (N36 still holds
+  for any future claim).
+- The weights stay as fixed (N37). A configuration without peer deviation
+  and user context looks better here, but it was found by looking at
+  validation; if it is ever adopted it is recorded as validation-informed,
+  and only the Chapter 16 test readout can say whether it holds.
+- Chapter 12 must choose the analyst-queue ordering explicitly (anomaly
+  score, CRI, or anomaly score with the CRI band as context) and must not
+  assume the CRI improves detection. It reports the choice and both views.
+- Chapter 16 ablation C reads, on test and once: the anomaly score, the
+  default CRI and every leave-one-out variant.
+

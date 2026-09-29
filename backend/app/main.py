@@ -21,8 +21,16 @@ async def lifespan(app: FastAPI):
     from app.scoring.service import AnomalyScoringService
 
     app.state.scoring = AnomalyScoringService.load(resolve_serving_config())
+
+    # Chapter 9: the CRI calibration must belong to the model served now
+    # (N29). A missing or mismatched calibration does not stop the API; the
+    # ``cri`` block of /health says why, and no risk score is produced.
+    from app.cri.runtime import CRIRuntime
+
+    app.state.cri = CRIRuntime.load(app.state.scoring)
     yield
     app.state.scoring = None
+    app.state.cri = None
 
 
 app = FastAPI(
@@ -36,10 +44,14 @@ app = FastAPI(
 async def health(request: Request) -> dict:
     service = getattr(request.app.state, "scoring", None)
     model = service.status() if service is not None else {"status": "unavailable", "reason": "scoring service not started"}
+    cri = getattr(request.app.state, "cri", None)
+    # The top-level status keeps its Chapter 8 meaning (anomaly model loaded);
+    # the CRI reports its own status until Chapter 13 adds the risk routes.
     return {
         "status": "healthy" if model["status"] == "loaded" else "degraded",
         "service": "cira-backend",
         "anomaly_model": model,
+        "cri": cri.status() if cri is not None else {"status": "unavailable", "reason": "CRI not started"},
     }
 
 

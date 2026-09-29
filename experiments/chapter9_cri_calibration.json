@@ -1,0 +1,22 @@
+{
+  "chapter": 9,
+  "description": "The CRI calibration in use (N29, N33). Engine and API refuse scores from any other model_version. Replace only with `python -m app.cri.calibrate --supersede \"<reason>\"`.",
+  "current": {
+    "calibration_id": "20260929T095921Z-full-cri",
+    "created_at": "2026-09-29T09:59:21+00:00",
+    "model": {
+      "model_name": "gbdt",
+      "model_version": "gbdt-chapter8-v1-077a3dae6cee",
+      "registry_version": "v0003",
+      "run_id": "20260928T194711Z-full-user-s42",
+      "profile": "full"
+    },
+    "source_batch_run_id": "20260928T194858Z-full-batch",
+    "reference_rows": 89018,
+    "reference_sha256": "1efbf1b3b09ebc296ac2ed44a5338c6aa3a5253518c7de66d221fa04a4fe6a48",
+    "meta_sha256": "26442ff19ef11f8f9b3357611ebdf939e777d258d7711109090467dfb5df7eff",
+    "definition_version": "c9-rarity-v1",
+    "config_hash_at_calibration": "297bbbe7add7"
+  },
+  "superseded": []
+}

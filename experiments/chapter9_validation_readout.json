@@ -1,0 +1,926 @@
+{
+  "chapter": 9,
+  "part": "validation",
+  "written_at": "2026-09-29T09:59:42+00:00",
+  "profile": "full",
+  "reportable": true,
+  "cri_run_id": "20260929T095927Z-full-cri-default",
+  "calibration_id": "20260929T095921Z-full-cri",
+  "config_hash": "297bbbe7add7",
+  "is_calibrated_default": true,
+  "config_overrides": {},
+  "served": {
+    "model_name": "gbdt",
+    "model_version": "gbdt-chapter8-v1-077a3dae6cee",
+    "registry_version": "v0003",
+    "run_id": "20260928T194711Z-full-user-s42"
+  },
+  "rows": 89018,
+  "positives": 202,
+  "chance_pr_auc": 0.002269203981217282,
+  "budgets": [
+    1,
+    5,
+    10
+  ],
+  "models": {
+    "anomaly_score": {
+      "pr_auc": 0.9154972106230234,
+      "roc_auc_secondary": 0.9991096288065124,
+      "positives": 202,
+      "recall_at_1": 0.6633663366336634,
+      "precision_at_1": 0.268,
+      "insiders_caught_at_1": "9/14",
+      "recall_at_5": 1.0,
+      "precision_at_5": 0.0808,
+      "insiders_caught_at_5": "14/14",
+      "recall_at_10": 1.0,
+      "precision_at_10": 0.0404,
+      "insiders_caught_at_10": "14/14",
+      "days_by_scenario_at_1": {
+        "1": "7/19",
+        "2": "125/179",
+        "3": "2/4"
+      },
+      "caught_by_scenario_at_1": {
+        "1": "3/6",
+        "2": "5/6",
+        "3": "1/2"
+      },
+      "days_by_scenario_at_5": {
+        "1": "19/19",
+        "2": "179/179",
+        "3": "4/4"
+      },
+      "caught_by_scenario_at_5": {
+        "1": "6/6",
+        "2": "6/6",
+        "3": "2/2"
+      }
+    },
+    "cri:anomaly_only": {
+      "pr_auc": 0.9154972106230234,
+      "roc_auc_secondary": 0.9991096288065124,
+      "positives": 202,
+      "recall_at_1": 0.6633663366336634,
+      "precision_at_1": 0.268,
+      "insiders_caught_at_1": "9/14",
+      "recall_at_5": 1.0,
+      "precision_at_5": 0.0808,
+      "insiders_caught_at_5": "14/14",
+      "recall_at_10": 1.0,
+      "precision_at_10": 0.0404,
+      "insiders_caught_at_10": "14/14",
+      "days_by_scenario_at_1": {
+        "1": "7/19",
+        "2": "125/179",
+        "3": "2/4"
+      },
+      "caught_by_scenario_at_1": {
+        "1": "3/6",
+        "2": "5/6",
+        "3": "1/2"
+      },
+      "days_by_scenario_at_5": {
+        "1": "19/19",
+        "2": "179/179",
+        "3": "4/4"
+      },
+      "caught_by_scenario_at_5": {
+        "1": "6/6",
+        "2": "6/6",
+        "3": "2/2"
+      },
+      "effective_weights": {
+        "anomaly": 1.0
+      }
+    },
+    "cri:default": {
+      "pr_auc": 0.6936565744027507,
+      "roc_auc_secondary": 0.9984193598156429,
+      "positives": 202,
+      "recall_at_1": 0.594059405940594,
+      "precision_at_1": 0.24,
+      "insiders_caught_at_1": "11/14",
+      "recall_at_5": 0.995049504950495,
+      "precision_at_5": 0.0804,
+      "insiders_caught_at_5": "14/14",
+      "recall_at_10": 1.0,
+      "precision_at_10": 0.0404,
+      "insiders_caught_at_10": "14/14",
+      "days_by_scenario_at_1": {
+        "1": "9/19",
+        "2": "110/179",
+        "3": "1/4"
+      },
+      "caught_by_scenario_at_1": {
+        "1": "4/6",
+        "2": "6/6",
+        "3": "1/2"
+      },
+      "days_by_scenario_at_5": {
+        "1": "19/19",
+        "2": "178/179",
+        "3": "4/4"
+      },
+      "caught_by_scenario_at_5": {
+        "1": "6/6",
+        "2": "6/6",
+        "3": "2/2"
+      },
+      "effective_weights": {
+        "anomaly": 0.6666666666666666,
+        "historical_deviation": 0.16666666666666666,
+        "peer_deviation": 0.11111111111111112,
+        "user_context": 0.05555555555555556
+      }
+    },
+    "cri:no_historical_deviation": {
+      "pr_auc": 0.6527083492273053,
+      "roc_auc_secondary": 0.998524929055687,
+      "positives": 202,
+      "recall_at_1": 0.5792079207920792,
+      "precision_at_1": 0.234,
+      "insiders_caught_at_1": "9/14",
+      "recall_at_5": 1.0,
+      "precision_at_5": 0.0808,
+      "insiders_caught_at_5": "14/14",
+      "recall_at_10": 1.0,
+      "precision_at_10": 0.0404,
+      "insiders_caught_at_10": "14/14",
+      "days_by_scenario_at_1": {
+        "1": "7/19",
+        "2": "109/179",
+        "3": "1/4"
+      },
+      "caught_by_scenario_at_1": {
+        "1": "3/6",
+        "2": "5/6",
+        "3": "1/2"
+      },
+      "days_by_scenario_at_5": {
+        "1": "19/19",
+        "2": "179/179",
+        "3": "4/4"
+      },
+      "caught_by_scenario_at_5": {
+        "1": "6/6",
+        "2": "6/6",
+        "3": "2/2"
+      },
+      "effective_weights": {
+        "anomaly": 0.7999999999999999,
+        "peer_deviation": 0.13333333333333333,
+        "user_context": 0.06666666666666667
+      }
+    },
+    "cri:no_peer_deviation": {
+      "pr_auc": 0.8244696254672826,
+      "roc_auc_secondary": 0.9985966648592439,
+      "positives": 202,
+      "recall_at_1": 0.6138613861386139,
+      "precision_at_1": 0.248,
+      "insiders_caught_at_1": "10/14",
+      "recall_at_5": 0.995049504950495,
+      "precision_at_5": 0.0804,
+      "insiders_caught_at_5": "14/14",
+      "recall_at_10": 1.0,
+      "precision_at_10": 0.0404,
+      "insiders_caught_at_10": "14/14",
+      "days_by_scenario_at_1": {
+        "1": "7/19",
+        "2": "116/179",
+        "3": "1/4"
+      },
+      "caught_by_scenario_at_1": {
+        "1": "3/6",
+        "2": "6/6",
+        "3": "1/2"
+      },
+      "days_by_scenario_at_5": {
+        "1": "19/19",
+        "2": "178/179",
+        "3": "4/4"
+      },
+      "caught_by_scenario_at_5": {
+        "1": "6/6",
+        "2": "6/6",
+        "3": "2/2"
+      },
+      "effective_weights": {
+        "anomaly": 0.75,
+        "historical_deviation": 0.1875,
+        "user_context": 0.06250000000000001
+      }
+    },
+    "cri:no_user_context": {
+      "pr_auc": 0.8219686814971625,
+      "roc_auc_secondary": 0.9988399088737914,
+      "positives": 202,
+      "recall_at_1": 0.6287128712871287,
+      "precision_at_1": 0.254,
+      "insiders_caught_at_1": "11/14",
+      "recall_at_5": 0.995049504950495,
+      "precision_at_5": 0.0804,
+      "insiders_caught_at_5": "14/14",
+      "recall_at_10": 1.0,
+      "precision_at_10": 0.0404,
+      "insiders_caught_at_10": "14/14",
+      "days_by_scenario_at_1": {
+        "1": "9/19",
+        "2": "117/179",
+        "3": "1/4"
+      },
+      "caught_by_scenario_at_1": {
+        "1": "4/6",
+        "2": "6/6",
+        "3": "1/2"
+      },
+      "days_by_scenario_at_5": {
+        "1": "19/19",
+        "2": "178/179",
+        "3": "4/4"
+      },
+      "caught_by_scenario_at_5": {
+        "1": "6/6",
+        "2": "6/6",
+        "3": "2/2"
+      },
+      "effective_weights": {
+        "anomaly": 0.7058823529411765,
+        "historical_deviation": 0.17647058823529413,
+        "peer_deviation": 0.11764705882352942
+      }
+    }
+  },
+  "bands": {
+    "cri:anomaly_only": {
+      "HIGH_or_above": {
+        "alerts": 280,
+        "alerts_on_excluded_rows": 0,
+        "true_positives": 177,
+        "false_positives": 103,
+        "positives": 202,
+        "precision": 0.6321428571428571,
+        "recall": 0.8762376237623762,
+        "recall_by_scenario": {
+          "1": {
+            "positives": 19,
+            "alerted": 17,
+            "recall": 0.8947368421052632
+          },
+          "2": {
+            "positives": 179,
+            "alerted": 156,
+            "recall": 0.8715083798882681
+          },
+          "3": {
+            "positives": 4,
+            "alerted": 4,
+            "recall": 1.0
+          }
+        },
+        "per_user": {
+          "insiders": 14,
+          "caught": 14,
+          "by_scenario": {
+            "1": {
+              "insiders": 6,
+              "caught": 6
+            },
+            "2": {
+              "insiders": 6,
+              "caught": 6
+            },
+            "3": {
+              "insiders": 2,
+              "caught": 2
+            }
+          },
+          "latency_days": {
+            "median": 0.0,
+            "mean": 0.5714285714285714,
+            "max": 8
+          }
+        },
+        "alerts_per_day": {
+          "days": 500,
+          "total": 280,
+          "mean": 0.56,
+          "median": 0.0,
+          "p95": 2.0,
+          "max": 4,
+          "days_with_none": 331
+        }
+      },
+      "CRITICAL": {
+        "alerts": 14,
+        "alerts_on_excluded_rows": 0,
+        "true_positives": 14,
+        "false_positives": 0,
+        "positives": 202,
+        "precision": 1.0,
+        "recall": 0.06930693069306931,
+        "recall_by_scenario": {
+          "1": {
+            "positives": 19,
+            "alerted": 0,
+            "recall": 0.0
+          },
+          "2": {
+            "positives": 179,
+            "alerted": 14,
+            "recall": 0.0782122905027933
+          },
+          "3": {
+            "positives": 4,
+            "alerted": 0,
+            "recall": 0.0
+          }
+        },
+        "per_user": {
+          "insiders": 14,
+          "caught": 3,
+          "by_scenario": {
+            "1": {
+              "insiders": 6,
+              "caught": 0
+            },
+            "2": {
+              "insiders": 6,
+              "caught": 3
+            },
+            "3": {
+              "insiders": 2,
+              "caught": 0
+            }
+          },
+          "latency_days": {
+            "median": 7.0,
+            "mean": 10.666666666666666,
+            "max": 23
+          }
+        },
+        "alerts_per_day": {
+          "days": 500,
+          "total": 14,
+          "mean": 0.028,
+          "median": 0.0,
+          "p95": 0.0,
+          "max": 1,
+          "days_with_none": 486
+        }
+      },
+      "severity_counts": {
+        "LOW": 84014,
+        "MEDIUM": 4724,
+        "HIGH": 266,
+        "CRITICAL": 14
+      }
+    },
+    "cri:default": {
+      "HIGH_or_above": {
+        "alerts": 54,
+        "alerts_on_excluded_rows": 0,
+        "true_positives": 45,
+        "false_positives": 9,
+        "positives": 202,
+        "precision": 0.8333333333333334,
+        "recall": 0.22277227722772278,
+        "recall_by_scenario": {
+          "1": {
+            "positives": 19,
+            "alerted": 4,
+            "recall": 0.21052631578947367
+          },
+          "2": {
+            "positives": 179,
+            "alerted": 41,
+            "recall": 0.22905027932960895
+          },
+          "3": {
+            "positives": 4,
+            "alerted": 0,
+            "recall": 0.0
+          }
+        },
+        "per_user": {
+          "insiders": 14,
+          "caught": 8,
+          "by_scenario": {
+            "1": {
+              "insiders": 6,
+              "caught": 4
+            },
+            "2": {
+              "insiders": 6,
+              "caught": 4
+            },
+            "3": {
+              "insiders": 2,
+              "caught": 0
+            }
+          },
+          "latency_days": {
+            "median": 0.5,
+            "mean": 2.125,
+            "max": 8
+          }
+        },
+        "alerts_per_day": {
+          "days": 500,
+          "total": 54,
+          "mean": 0.108,
+          "median": 0.0,
+          "p95": 1.0,
+          "max": 2,
+          "days_with_none": 451
+        }
+      },
+      "CRITICAL": {
+        "alerts": 0,
+        "alerts_on_excluded_rows": 0,
+        "true_positives": 0,
+        "false_positives": 0,
+        "positives": 202,
+        "precision": null,
+        "recall": 0.0,
+        "recall_by_scenario": {
+          "1": {
+            "positives": 19,
+            "alerted": 0,
+            "recall": 0.0
+          },
+          "2": {
+            "positives": 179,
+            "alerted": 0,
+            "recall": 0.0
+          },
+          "3": {
+            "positives": 4,
+            "alerted": 0,
+            "recall": 0.0
+          }
+        },
+        "per_user": {
+          "insiders": 14,
+          "caught": 0,
+          "by_scenario": {
+            "1": {
+              "insiders": 6,
+              "caught": 0
+            },
+            "2": {
+              "insiders": 6,
+              "caught": 0
+            },
+            "3": {
+              "insiders": 2,
+              "caught": 0
+            }
+          },
+          "latency_days": null
+        },
+        "alerts_per_day": {
+          "days": 500,
+          "total": 0,
+          "mean": 0.0,
+          "median": 0.0,
+          "p95": 0.0,
+          "max": 0,
+          "days_with_none": 500
+        }
+      },
+      "severity_counts": {
+        "LOW": 85963,
+        "MEDIUM": 3001,
+        "HIGH": 54,
+        "CRITICAL": 0
+      }
+    },
+    "cri:no_historical_deviation": {
+      "HIGH_or_above": {
+        "alerts": 124,
+        "alerts_on_excluded_rows": 0,
+        "true_positives": 82,
+        "false_positives": 42,
+        "positives": 202,
+        "precision": 0.6612903225806451,
+        "recall": 0.40594059405940597,
+        "recall_by_scenario": {
+          "1": {
+            "positives": 19,
+            "alerted": 1,
+            "recall": 0.05263157894736842
+          },
+          "2": {
+            "positives": 179,
+            "alerted": 81,
+            "recall": 0.45251396648044695
+          },
+          "3": {
+            "positives": 4,
+            "alerted": 0,
+            "recall": 0.0
+          }
+        },
+        "per_user": {
+          "insiders": 14,
+          "caught": 5,
+          "by_scenario": {
+            "1": {
+              "insiders": 6,
+              "caught": 1
+            },
+            "2": {
+              "insiders": 6,
+              "caught": 4
+            },
+            "3": {
+              "insiders": 2,
+              "caught": 0
+            }
+          },
+          "latency_days": {
+            "median": 0.0,
+            "mean": 0.0,
+            "max": 0
+          }
+        },
+        "alerts_per_day": {
+          "days": 500,
+          "total": 124,
+          "mean": 0.248,
+          "median": 0.0,
+          "p95": 1.0,
+          "max": 3,
+          "days_with_none": 385
+        }
+      },
+      "CRITICAL": {
+        "alerts": 1,
+        "alerts_on_excluded_rows": 0,
+        "true_positives": 1,
+        "false_positives": 0,
+        "positives": 202,
+        "precision": 1.0,
+        "recall": 0.0049504950495049506,
+        "recall_by_scenario": {
+          "1": {
+            "positives": 19,
+            "alerted": 0,
+            "recall": 0.0
+          },
+          "2": {
+            "positives": 179,
+            "alerted": 1,
+            "recall": 0.00558659217877095
+          },
+          "3": {
+            "positives": 4,
+            "alerted": 0,
+            "recall": 0.0
+          }
+        },
+        "per_user": {
+          "insiders": 14,
+          "caught": 1,
+          "by_scenario": {
+            "1": {
+              "insiders": 6,
+              "caught": 0
+            },
+            "2": {
+              "insiders": 6,
+              "caught": 1
+            },
+            "3": {
+              "insiders": 2,
+              "caught": 0
+            }
+          },
+          "latency_days": {
+            "median": 23.0,
+            "mean": 23.0,
+            "max": 23
+          }
+        },
+        "alerts_per_day": {
+          "days": 500,
+          "total": 1,
+          "mean": 0.002,
+          "median": 0.0,
+          "p95": 0.0,
+          "max": 1,
+          "days_with_none": 499
+        }
+      },
+      "severity_counts": {
+        "LOW": 85129,
+        "MEDIUM": 3765,
+        "HIGH": 123,
+        "CRITICAL": 1
+      }
+    },
+    "cri:no_peer_deviation": {
+      "HIGH_or_above": {
+        "alerts": 98,
+        "alerts_on_excluded_rows": 0,
+        "true_positives": 90,
+        "false_positives": 8,
+        "positives": 202,
+        "precision": 0.9183673469387755,
+        "recall": 0.44554455445544555,
+        "recall_by_scenario": {
+          "1": {
+            "positives": 19,
+            "alerted": 11,
+            "recall": 0.5789473684210527
+          },
+          "2": {
+            "positives": 179,
+            "alerted": 78,
+            "recall": 0.43575418994413406
+          },
+          "3": {
+            "positives": 4,
+            "alerted": 1,
+            "recall": 0.25
+          }
+        },
+        "per_user": {
+          "insiders": 14,
+          "caught": 12,
+          "by_scenario": {
+            "1": {
+              "insiders": 6,
+              "caught": 6
+            },
+            "2": {
+              "insiders": 6,
+              "caught": 5
+            },
+            "3": {
+              "insiders": 2,
+              "caught": 1
+            }
+          },
+          "latency_days": {
+            "median": 0.0,
+            "mean": 3.0833333333333335,
+            "max": 30
+          }
+        },
+        "alerts_per_day": {
+          "days": 500,
+          "total": 98,
+          "mean": 0.196,
+          "median": 0.0,
+          "p95": 1.0,
+          "max": 4,
+          "days_with_none": 421
+        }
+      },
+      "CRITICAL": {
+        "alerts": 0,
+        "alerts_on_excluded_rows": 0,
+        "true_positives": 0,
+        "false_positives": 0,
+        "positives": 202,
+        "precision": null,
+        "recall": 0.0,
+        "recall_by_scenario": {
+          "1": {
+            "positives": 19,
+            "alerted": 0,
+            "recall": 0.0
+          },
+          "2": {
+            "positives": 179,
+            "alerted": 0,
+            "recall": 0.0
+          },
+          "3": {
+            "positives": 4,
+            "alerted": 0,
+            "recall": 0.0
+          }
+        },
+        "per_user": {
+          "insiders": 14,
+          "caught": 0,
+          "by_scenario": {
+            "1": {
+              "insiders": 6,
+              "caught": 0
+            },
+            "2": {
+              "insiders": 6,
+              "caught": 0
+            },
+            "3": {
+              "insiders": 2,
+              "caught": 0
+            }
+          },
+          "latency_days": null
+        },
+        "alerts_per_day": {
+          "days": 500,
+          "total": 0,
+          "mean": 0.0,
+          "median": 0.0,
+          "p95": 0.0,
+          "max": 0,
+          "days_with_none": 500
+        }
+      },
+      "severity_counts": {
+        "LOW": 85796,
+        "MEDIUM": 3124,
+        "HIGH": 98,
+        "CRITICAL": 0
+      }
+    },
+    "cri:no_user_context": {
+      "HIGH_or_above": {
+        "alerts": 77,
+        "alerts_on_excluded_rows": 0,
+        "true_positives": 72,
+        "false_positives": 5,
+        "positives": 202,
+        "precision": 0.935064935064935,
+        "recall": 0.3564356435643564,
+        "recall_by_scenario": {
+          "1": {
+            "positives": 19,
+            "alerted": 9,
+            "recall": 0.47368421052631576
+          },
+          "2": {
+            "positives": 179,
+            "alerted": 63,
+            "recall": 0.35195530726256985
+          },
+          "3": {
+            "positives": 4,
+            "alerted": 0,
+            "recall": 0.0
+          }
+        },
+        "per_user": {
+          "insiders": 14,
+          "caught": 9,
+          "by_scenario": {
+            "1": {
+              "insiders": 6,
+              "caught": 5
+            },
+            "2": {
+              "insiders": 6,
+              "caught": 4
+            },
+            "3": {
+              "insiders": 2,
+              "caught": 0
+            }
+          },
+          "latency_days": {
+            "median": 0.0,
+            "mean": 0.8888888888888888,
+            "max": 7
+          }
+        },
+        "alerts_per_day": {
+          "days": 500,
+          "total": 77,
+          "mean": 0.154,
+          "median": 0.0,
+          "p95": 1.0,
+          "max": 3,
+          "days_with_none": 433
+        }
+      },
+      "CRITICAL": {
+        "alerts": 0,
+        "alerts_on_excluded_rows": 0,
+        "true_positives": 0,
+        "false_positives": 0,
+        "positives": 202,
+        "precision": null,
+        "recall": 0.0,
+        "recall_by_scenario": {
+          "1": {
+            "positives": 19,
+            "alerted": 0,
+            "recall": 0.0
+          },
+          "2": {
+            "positives": 179,
+            "alerted": 0,
+            "recall": 0.0
+          },
+          "3": {
+            "positives": 4,
+            "alerted": 0,
+            "recall": 0.0
+          }
+        },
+        "per_user": {
+          "insiders": 14,
+          "caught": 0,
+          "by_scenario": {
+            "1": {
+              "insiders": 6,
+              "caught": 0
+            },
+            "2": {
+              "insiders": 6,
+              "caught": 0
+            },
+            "3": {
+              "insiders": 2,
+              "caught": 0
+            }
+          },
+          "latency_days": null
+        },
+        "alerts_per_day": {
+          "days": 500,
+          "total": 0,
+          "mean": 0.0,
+          "median": 0.0,
+          "p95": 0.0,
+          "max": 0,
+          "days_with_none": 500
+        }
+      },
+      "severity_counts": {
+        "LOW": 85420,
+        "MEDIUM": 3521,
+        "HIGH": 77,
+        "CRITICAL": 0
+      }
+    }
+  },
+  "chapter8_reference_rows": {
+    "tabnet": {
+      "pr_auc": 0.7493493794484459,
+      "insiders_caught_at_1": "12/14",
+      "recall_by_scenario_at_1": {
+        "1": "14/19",
+        "2": "97/179",
+        "3": "0/4"
+      },
+      "caught_by_scenario_at_1": {
+        "1": "6/6",
+        "2": "6/6",
+        "3": "0/2"
+      }
+    },
+    "gbdt_ch6_all_feat": {
+      "pr_auc": 0.9390126610227025,
+      "insiders_caught_at_1": "9/14",
+      "recall_by_scenario_at_1": {
+        "1": "6/19",
+        "2": "129/179",
+        "3": "2/4"
+      },
+      "caught_by_scenario_at_1": {
+        "1": "3/6",
+        "2": "5/6",
+        "3": "1/2"
+      }
+    }
+  },
+  "harness": [
+    {
+      "check": "cri:anomaly_only ranks like the anomaly score (same PR-AUC)",
+      "ok": true,
+      "detail": "difference 0.00e+00"
+    },
+    {
+      "check": "anomaly score PR-AUC equals the Chapter 8 decision evidence",
+      "ok": true,
+      "detail": "Chapter 8 0.915497, here 0.915497"
+    }
+  ],
+  "guard": {
+    "version": "c9-cri-guard-v1",
+    "compares": "cri:default against the served anomaly score, validation, primary view",
+    "warn_if": [
+      "PR-AUC lower",
+      "fewer insiders caught at top-1",
+      "fewer insiders caught at top-5",
+      "fewer malicious days at top-1 in any scenario"
+    ],
+    "margin": 0.0,
+    "effect": "WARN to be explained in docs/audits/chapter_9_audit.md; never a reason to retune weights (N37)",
+    "warnings": [
+      "PR-AUC 0.6937 < anomaly score 0.9155",
+      "scenario 2 malicious days at top-1: 110/179 < anomaly score 125/179",
+      "scenario 3 malicious days at top-1: 1/4 < anomaly score 2/4"
+    ]
+  },
+  "superseded": []
+}

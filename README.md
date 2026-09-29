@@ -22,14 +22,15 @@ passes its checks.
 | 6 | Baselines: rule, Isolation Forest, LOF, LSTM autoencoder, XGBoost | IMPLEMENTED; verified on mid (user, time) and full (user) |
 | 7 | TabNet, model registry, same-harness comparison with the baselines | IMPLEMENTED |
 | 8 | Anomaly scoring service, served-model decision, batch scoring, API model loading | IMPLEMENTED; serving gbdt v0003 |
-| 9-16 | CRI, MITRE, XAI, alerts, API, dashboard, evaluation | PLANNED |
+| 9 | Contextual Risk Intelligence (CRI), Asset entity | IMPLEMENTED; calibrated for gbdt v0003 |
+| 10-16 | MITRE, XAI, alerts, API, dashboard, evaluation | PLANNED |
 | 17-18 | Kafka, Redis, Celery, SSE, OpenSearch, observability, K8s | NOT IMPLEMENTED (production extensions) |
 
 See `docs/audits/chapter_1_5_audit.md`, `docs/audits/chapter_6_audit.md` and `docs/audits/chapter_7_audit.md` and `docs/audits/chapter_8_audit.md` for the chapter reviews, and
 `docs/CARRY_FORWARD.md` for the rules every later chapter must follow.
 Chapter 6 is described in `docs/chapters/chapter_6_baselines.md`, Chapter 7
 in `docs/chapters/chapter_7_tabnet.md`, Chapter 8 in
-`docs/chapters/chapter_8_scoring.md`.
+`docs/chapters/chapter_8_scoring.md`, Chapter 9 in `docs/chapters/chapter_9_cri.md`.
 
 ## Running Chapter 5
 
@@ -119,6 +120,35 @@ it). The API loads the decided model once at startup, on CPU, and
 `<CERT_PROCESSED_DIR>/scores/chapter8/<batch_run_id>/`. Rows tagged
 `model_split=train` are in-sample (N31). Design, the rule and the full run
 order: `docs/chapters/chapter_8_scoring.md`.
+
+## Running Chapter 9
+
+Chapter 9 turns the served model's anomaly score into a 0-100 contextual
+risk score and a severity band. Every component is put on one rarity scale,
+fitted to the served model's validation user-days, so the same weights and
+bands work whichever model is served; a calibration belongs to one
+model_version and is refused for any other (N29, N33). The real-data
+sign-off is one resumable command, from `backend/`:
+
+```bash
+python ../scripts/signoff_chapter9.py              # stops at the first FAIL; re-run after a fix
+python ../scripts/signoff_chapter9.py --finalize   # after explaining every WARN in the audit draft
+```
+
+The same steps by hand:
+
+```bash
+python -m app.cri.calibrate --profile full         # label-free; pins experiments/chapter9_cri_calibration.json
+python -m app.cri.batch --profile full             # risk scores to <CERT_PROCESSED_DIR>/risk/chapter9/<run id>/
+python ../scripts/verify_chapter9.py --profile full --no-readout
+python -m app.cri.evaluate --profile full          # validation readout, once (reads labels)
+python ../scripts/verify_chapter9.py --profile full
+```
+
+Remove any `CRI_*` values from your `.env` that differ from `.env.example`;
+an override is reported and the run is then not the calibrated default.
+Apply the `assets` migration with `alembic upgrade head`. Design, the
+formula and the bands: `docs/chapters/chapter_9_cri.md`.
 
 ## Tests
 
