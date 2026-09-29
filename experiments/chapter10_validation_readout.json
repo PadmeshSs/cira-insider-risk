@@ -1,0 +1,395 @@
+{
+  "chapter": 10,
+  "part": "validation",
+  "written_at": "2026-09-29T18:48:27+00:00",
+  "profile": "full",
+  "reportable": true,
+  "cri_run_id": "20260929T184445Z-full-cri-default-mitre",
+  "formula_hash": "3bea2eac4884",
+  "mitre": {
+    "mitre_run_id": "20260929T184439Z-full-mitre",
+    "path": "D:\\CIRA_dataset\\datasets\\processed\\mitre\\chapter10\\20260929T184439Z-full-mitre",
+    "ruleset_version": "c10-rules-v1",
+    "ruleset_hash": "d58ec9c75bc6",
+    "attack_version": "19.2",
+    "reference_id": "20260929T184428Z-full-mitre",
+    "status_on_scored_rows": {
+      "mapped": 127835,
+      "unmapped": 336852,
+      "not_evaluated": 0
+    }
+  },
+  "calibration_id": "20260929T095921Z-full-cri",
+  "served": {
+    "model_name": "gbdt",
+    "model_version": "gbdt-chapter8-v1-077a3dae6cee",
+    "registry_version": "v0003",
+    "run_id": "20260928T194711Z-full-user-s42"
+  },
+  "rows": 89018,
+  "positives": 202,
+  "chance_pr_auc": 0.002269203981217282,
+  "models": {
+    "anomaly_score": {
+      "pr_auc": 0.9154972106230234,
+      "roc_auc_secondary": 0.9991096288065124,
+      "positives": 202,
+      "recall_at_1": 0.6633663366336634,
+      "precision_at_1": 0.268,
+      "insiders_caught_at_1": "9/14",
+      "recall_at_5": 1.0,
+      "precision_at_5": 0.0808,
+      "insiders_caught_at_5": "14/14",
+      "recall_at_10": 1.0,
+      "precision_at_10": 0.0404,
+      "insiders_caught_at_10": "14/14",
+      "days_by_scenario_at_1": {
+        "1": "7/19",
+        "2": "125/179",
+        "3": "2/4"
+      },
+      "caught_by_scenario_at_1": {
+        "1": "3/6",
+        "2": "5/6",
+        "3": "1/2"
+      },
+      "days_by_scenario_at_5": {
+        "1": "19/19",
+        "2": "179/179",
+        "3": "4/4"
+      },
+      "caught_by_scenario_at_5": {
+        "1": "6/6",
+        "2": "6/6",
+        "3": "2/2"
+      }
+    },
+    "cri:anomaly_only": {
+      "pr_auc": 0.9154972106230234,
+      "roc_auc_secondary": 0.9991096288065124,
+      "positives": 202,
+      "recall_at_1": 0.6633663366336634,
+      "precision_at_1": 0.268,
+      "insiders_caught_at_1": "9/14",
+      "recall_at_5": 1.0,
+      "precision_at_5": 0.0808,
+      "insiders_caught_at_5": "14/14",
+      "recall_at_10": 1.0,
+      "precision_at_10": 0.0404,
+      "insiders_caught_at_10": "14/14",
+      "days_by_scenario_at_1": {
+        "1": "7/19",
+        "2": "125/179",
+        "3": "2/4"
+      },
+      "caught_by_scenario_at_1": {
+        "1": "3/6",
+        "2": "5/6",
+        "3": "1/2"
+      },
+      "days_by_scenario_at_5": {
+        "1": "19/19",
+        "2": "179/179",
+        "3": "4/4"
+      },
+      "caught_by_scenario_at_5": {
+        "1": "6/6",
+        "2": "6/6",
+        "3": "2/2"
+      },
+      "effective_weights": {
+        "anomaly": 1.0
+      }
+    },
+    "cri:no_mitre_context": {
+      "pr_auc": 0.6936565744027507,
+      "roc_auc_secondary": 0.9984193598156429,
+      "positives": 202,
+      "recall_at_1": 0.594059405940594,
+      "precision_at_1": 0.24,
+      "insiders_caught_at_1": "11/14",
+      "recall_at_5": 0.995049504950495,
+      "precision_at_5": 0.0804,
+      "insiders_caught_at_5": "14/14",
+      "recall_at_10": 1.0,
+      "precision_at_10": 0.0404,
+      "insiders_caught_at_10": "14/14",
+      "days_by_scenario_at_1": {
+        "1": "9/19",
+        "2": "110/179",
+        "3": "1/4"
+      },
+      "caught_by_scenario_at_1": {
+        "1": "4/6",
+        "2": "6/6",
+        "3": "1/2"
+      },
+      "days_by_scenario_at_5": {
+        "1": "19/19",
+        "2": "178/179",
+        "3": "4/4"
+      },
+      "caught_by_scenario_at_5": {
+        "1": "6/6",
+        "2": "6/6",
+        "3": "2/2"
+      },
+      "effective_weights": {
+        "anomaly": 0.6666666666666666,
+        "historical_deviation": 0.16666666666666666,
+        "peer_deviation": 0.11111111111111112,
+        "user_context": 0.05555555555555556
+      }
+    },
+    "cri:default": {
+      "pr_auc": 0.5572430768680335,
+      "roc_auc_secondary": 0.9976605321313973,
+      "positives": 202,
+      "recall_at_1": 0.5297029702970297,
+      "precision_at_1": 0.214,
+      "insiders_caught_at_1": "13/14",
+      "recall_at_5": 0.9900990099009901,
+      "precision_at_5": 0.08,
+      "insiders_caught_at_5": "14/14",
+      "recall_at_10": 1.0,
+      "precision_at_10": 0.0404,
+      "insiders_caught_at_10": "14/14",
+      "days_by_scenario_at_1": {
+        "1": "13/19",
+        "2": "93/179",
+        "3": "1/4"
+      },
+      "caught_by_scenario_at_1": {
+        "1": "6/6",
+        "2": "6/6",
+        "3": "1/2"
+      },
+      "days_by_scenario_at_5": {
+        "1": "19/19",
+        "2": "177/179",
+        "3": "4/4"
+      },
+      "caught_by_scenario_at_5": {
+        "1": "6/6",
+        "2": "6/6",
+        "3": "2/2"
+      },
+      "effective_weights": {
+        "anomaly": 0.6,
+        "historical_deviation": 0.15,
+        "peer_deviation": 0.1,
+        "user_context": 0.05,
+        "mitre_context": 0.1
+      }
+    },
+    "mitre_context": {
+      "pr_auc": 0.03936446767738215,
+      "roc_auc_secondary": 0.7709152786225298,
+      "positives": 202,
+      "recall_at_1": 0.06930693069306931,
+      "precision_at_1": 0.028,
+      "insiders_caught_at_1": "7/14",
+      "recall_at_5": 0.10891089108910891,
+      "precision_at_5": 0.0088,
+      "insiders_caught_at_5": "9/14",
+      "recall_at_10": 0.10891089108910891,
+      "precision_at_10": 0.0044,
+      "insiders_caught_at_10": "9/14",
+      "days_by_scenario_at_1": {
+        "1": "12/19",
+        "2": "0/179",
+        "3": "2/4"
+      },
+      "caught_by_scenario_at_1": {
+        "1": "5/6",
+        "2": "0/6",
+        "3": "2/2"
+      },
+      "days_by_scenario_at_5": {
+        "1": "15/19",
+        "2": "5/179",
+        "3": "2/4"
+      },
+      "caught_by_scenario_at_5": {
+        "1": "6/6",
+        "2": "1/6",
+        "3": "2/2"
+      }
+    }
+  },
+  "disagreement_view": {
+    "shadow_model": "tabnet:v0005",
+    "budget": "daily top-1",
+    "seed": 42,
+    "by_scenario": {
+      "1": {
+        "both": {
+          "days": 6,
+          "mitre_mapped": 6,
+          "cri_default_at_1": 6,
+          "cri_no_mitre_at_1": 6
+        },
+        "served_only": {
+          "days": 1,
+          "mitre_mapped": 0,
+          "cri_default_at_1": 0,
+          "cri_no_mitre_at_1": 1
+        },
+        "shadow_only": {
+          "days": 8,
+          "mitre_mapped": 8,
+          "cri_default_at_1": 6,
+          "cri_no_mitre_at_1": 2
+        },
+        "neither": {
+          "days": 4,
+          "mitre_mapped": 2,
+          "cri_default_at_1": 1,
+          "cri_no_mitre_at_1": 0
+        }
+      },
+      "2": {
+        "both": {
+          "days": 86,
+          "mitre_mapped": 58,
+          "cri_default_at_1": 70,
+          "cri_no_mitre_at_1": 77
+        },
+        "served_only": {
+          "days": 39,
+          "mitre_mapped": 31,
+          "cri_default_at_1": 21,
+          "cri_no_mitre_at_1": 30
+        },
+        "shadow_only": {
+          "days": 11,
+          "mitre_mapped": 10,
+          "cri_default_at_1": 1,
+          "cri_no_mitre_at_1": 1
+        },
+        "neither": {
+          "days": 43,
+          "mitre_mapped": 35,
+          "cri_default_at_1": 1,
+          "cri_no_mitre_at_1": 2
+        }
+      },
+      "3": {
+        "both": {
+          "days": 0,
+          "mitre_mapped": 0,
+          "cri_default_at_1": 0,
+          "cri_no_mitre_at_1": 0
+        },
+        "served_only": {
+          "days": 2,
+          "mitre_mapped": 1,
+          "cri_default_at_1": 1,
+          "cri_no_mitre_at_1": 1
+        },
+        "shadow_only": {
+          "days": 0,
+          "mitre_mapped": 0,
+          "cri_default_at_1": 0,
+          "cri_no_mitre_at_1": 0
+        },
+        "neither": {
+          "days": 2,
+          "mitre_mapped": 2,
+          "cri_default_at_1": 0,
+          "cri_no_mitre_at_1": 0
+        }
+      }
+    },
+    "note": "shadow scores read for disagreement monitoring only (N32); never in a CRI or an alert"
+  },
+  "rule_rates": {
+    "benign_mapped_share": 0.27245090974599173,
+    "benign_user_days": 88816,
+    "rules": {
+      "R01_removable_media_copy": {
+        "technique_id": "T1052.001",
+        "benign_share": 0.08595298144478472,
+        "scenario_1": "3/19",
+        "scenario_2": "134/179",
+        "scenario_3": "3/4"
+      },
+      "R02_leak_site_access": {
+        "technique_id": "T1567",
+        "benign_share": 0.0,
+        "scenario_1": "15/19",
+        "scenario_2": "0/179",
+        "scenario_3": "0/4"
+      },
+      "R03_cloud_storage_access": {
+        "technique_id": "T1567.002",
+        "benign_share": 0.21427445505314358,
+        "scenario_1": "3/19",
+        "scenario_2": "0/179",
+        "scenario_3": "3/4"
+      },
+      "R04_attack_tool_site_access": {
+        "technique_id": "T1588.002",
+        "benign_share": 0.0,
+        "scenario_1": "0/19",
+        "scenario_2": "0/179",
+        "scenario_3": "2/4"
+      }
+    }
+  },
+  "chapter8_reference_rows": {
+    "tabnet": {
+      "pr_auc": 0.7493493794484459,
+      "insiders_caught_at_1": "12/14",
+      "recall_by_scenario_at_1": {
+        "1": "14/19",
+        "2": "97/179",
+        "3": "0/4"
+      }
+    },
+    "gbdt_ch6_all_feat": {
+      "pr_auc": 0.9390126610227025,
+      "insiders_caught_at_1": "9/14",
+      "recall_by_scenario_at_1": {
+        "1": "6/19",
+        "2": "129/179",
+        "3": "2/4"
+      }
+    }
+  },
+  "harness": [
+    {
+      "check": "recombining stored components reproduces the stored cri_score",
+      "ok": true,
+      "detail": "max diff 0.00e+00"
+    },
+    {
+      "check": "cri:anomaly_only ranks like the anomaly score",
+      "ok": true,
+      "detail": "0.00e+00"
+    },
+    {
+      "check": "cri:no_mitre_context equals the Chapter 9 readout's cri:default",
+      "ok": true,
+      "detail": "Chapter 9 0.693657, here 0.693657"
+    }
+  ],
+  "guard": {
+    "version": "c10-mitre-guard-v1",
+    "compares": "cri:default (with mitre_context) against cri:no_mitre_context, validation, primary view",
+    "warn_if": [
+      "PR-AUC lower",
+      "fewer insiders caught at top-1",
+      "fewer insiders caught at top-5",
+      "fewer malicious days at top-1 in any scenario"
+    ],
+    "margin": 0.0,
+    "effect": "WARN to be explained in docs/audits/chapter_10_audit.md; never a reason to change a rule or weight",
+    "warnings": [
+      "PR-AUC 0.5572 < cri:no_mitre_context 0.6937",
+      "scenario 2 malicious days at top-1: 93/179 < cri:no_mitre_context 110/179"
+    ]
+  },
+  "disclosure": "Rules were written from ATT&CK definitions and Chapter 5 columns, label-blind, but the public r4.2 scenario descriptions are known; any scenario gain is partly by construction (N41).",
+  "superseded": []
+}

@@ -62,8 +62,15 @@ def test_migration_matches_the_orm():
     """Applying the Chapter 9 migration leaves nothing for autogenerate to add for ``assets``."""
     mig = _module(next(VERSIONS.glob(f"{CH9_REVISION}_*.py")))
     assert mig.revision == CH9_REVISION and mig.down_revision == "123b779f392e"
-    heads = {_module(p).revision for p in VERSIONS.glob("*.py")} - {_module(p).down_revision for p in VERSIONS.glob("*.py")}
-    assert heads == {CH9_REVISION}
+    mods = [_module(p) for p in VERSIONS.glob("*.py")]
+    heads = {m.revision for m in mods} - {m.down_revision for m in mods}
+    assert len(heads) == 1                                  # one linear history; later chapters add to it
+    parent = {m.revision: m.down_revision for m in mods}
+    chain, rev = [], next(iter(heads))
+    while rev:
+        chain.append(rev)
+        rev = parent.get(rev)
+    assert CH9_REVISION in chain
     engine = sa.create_engine("sqlite://")
     with engine.begin() as conn:
         ctx = MigrationContext.configure(conn)

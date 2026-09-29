@@ -20,7 +20,7 @@ Architecture §15, CLAUDE §12)
     peer_deviation        rarity(max_j rarity(max(peer_dev_j, 0)))   two-stage, see calibration.py
     user_context          1.0 privileged role, 0.0 otherwise
     asset_criticality     supplied column in [0, 1], else unavailable
-    mitre_context         supplied column in [0, 1] (Chapter 10), else unavailable
+    mitre_context         supplied column in [0, 1] from a Chapter 10 enrichment run, else unavailable
 
 A null for an available component on one row means "no contextual
 evidence" and contributes 0; the other weights are not inflated for that
@@ -61,7 +61,8 @@ from .calibration import (
 )
 from .config import COMPONENTS, SEVERITIES, CRIConfig
 
-MITRE_UNAVAILABLE = "MITRE ATT&CK enrichment is Chapter 10; not wired yet"
+MITRE_UNAVAILABLE = ("no Chapter 10 enrichment run was joined (python -m app.mitre.batch, then "
+                     "app.cri.batch --with-mitre); the component is excluded, never invented")
 SCORE_COLUMNS = ("user_id", "date", "model_name", "model_version", "registry_version", "anomaly_score")
 RISK_COLUMNS = (
     "user_id", "date", "model_split", "model_name", "model_version", "registry_version", "anomaly_score",

@@ -6,10 +6,11 @@ Sections (each prints PASS, WARN or FAIL per check; exit code 1 on any FAIL):
     calibration  pin + sha256; fitted for the model served now; reference is
                  exactly the served model's validation rows of its batch; no
                  label column; rarity monotone and bounded
-    risk         a risk run (--cri-run-id, or the newest default run): schema,
+    risk         a risk run (--cri-run-id, or the newest run): schema,
                  no label column, anomaly score carried through unchanged,
                  one model_version, points sum to the CRI, severity matches the
-                 bands, a from-scratch recomputation reproduces every row,
+                 bands, a from-scratch recomputation reproduces every row
+                 (joining the same Chapter 10 enrichment run for a --with-mitre run),
                  mismatched model and shadow rows are refused
     readout      the validation readout, if present: validation only, harness
                  checks pass, every guard warning shown as a WARN
@@ -188,6 +189,12 @@ def check_risk(c: Checks, args, processed: Path, cfg: CRIConfig, cal) -> dict | 
         engine = CRIEngine(run_cfg, cal)
         feats = read_feature_columns(Path(meta["features"]["path"]), risk[["user_id", "date"]])
         ctx = build_context(risk[["user_id", "date"]], feats, load_roles(processed), run_cfg.privileged_roles)
+        if meta.get("mitre"):
+            # Chapter 10 run: the recomputation joins the same enrichment run the batch joined
+            from app.mitre.sources import mitre_run_dir, read_context
+
+            mctx = read_context(mitre_run_dir(processed, meta["mitre"]["mitre_run_id"]), risk[["user_id", "date"]])
+            ctx["mitre_context"] = mctx["mitre_context"].to_numpy(dtype="float64", na_value=np.nan)
         scores = risk[["user_id", "date", "model_split", "model_name", "model_version", "registry_version", "anomaly_score"]]
         fresh = engine.compute(scores, ctx)
         d = float(np.abs(fresh["cri_score"].to_numpy() - cri).max())

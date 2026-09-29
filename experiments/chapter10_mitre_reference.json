@@ -1,0 +1,18 @@
+{
+  "chapter": 10,
+  "description": "The MITRE rarity reference in use (N42). Model-free: fitted on validation users of the shared split, never on a model's scores. Replace only with `python -m app.mitre.calibrate --supersede \"<reason>\"`.",
+  "current": {
+    "reference_id": "20260929T184428Z-full-mitre",
+    "created_at": "2026-09-29T18:44:28+00:00",
+    "ruleset_version": "c10-rules-v1",
+    "ruleset_hash": "d58ec9c75bc6",
+    "attack_version": "19.2",
+    "table_sha256": "f33bc9d44e57e7e1e87b34e2fe3d670108239e14f503de1cc454a6033270c154",
+    "reference_rows": 89018,
+    "reference_sha256": "2fba62acd42eb6d9afde598119482f039856b50c3fdd61b4c74f9f209a532283",
+    "meta_sha256": "ff297746281c270afe56a7402e8d02c9a06d406591cefa028cab48093c07db26",
+    "definition_version": "c10-mitre-rarity-v1",
+    "features_fingerprint": "4f09afb11a8f"
+  },
+  "superseded": []
+}

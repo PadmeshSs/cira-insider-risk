@@ -13,7 +13,7 @@ Components (Architecture §15)
     peer_deviation        largest rise above the same-day department median
     user_context          1 for a privileged LDAP role, else 0 (a policy prior)
     asset_criticality     criticality of assets touched; CERT r4.2 has none
-    mitre_context         Chapter 10; not wired yet
+    mitre_context         Chapter 10 enrichment, joined with `app.cri.batch --with-mitre`
 
 Why these default weights
     The anomaly score is the only input validated against labels (Chapters

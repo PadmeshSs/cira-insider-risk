@@ -5,6 +5,7 @@ Usage, from backend/ with .env loaded:
     python -m app.cri.batch --profile full
     python -m app.cri.batch --profile full --variant anomaly_only      # ablation hook (Chapter 16)
     python -m app.cri.batch --profile full --rows evaluation           # validation + test rows only
+    python -m app.cri.batch --profile full --with-mitre                # Chapter 10: join mitre_context
 
 What it does
     1. Thread caps before numpy (N8).
@@ -21,6 +22,14 @@ What it does
        ``train`` are in-sample (N31).
     6. Appends one ``chapter9_cri_batch`` runlog line (R8).
 
+Chapter 10 (``--mitre-run-id`` / ``--with-mitre``): joins ``mitre_context``
+from a Chapter 10 enrichment run of the same matrix (fingerprint checked)
+and records the run in the meta. Without the flag the run is exactly the
+Chapter 9 formula, so Chapter 9's verified runs stay reproducible. With it,
+the effective weights change (MITRE enters at 0.10 of 1.00), which is a new
+formula: ``formula_hash`` covers the configuration plus the components that
+were available and the MITRE ruleset (N33).
+
 Label-free: no label is read and no detection metric is computed (N5). The
 validation readout is ``python -m app.cri.evaluate``. Loading risk scores
 into PostgreSQL is Chapter 12's job (HCEA §12, D-6).
@@ -32,6 +41,7 @@ from app.core.runtime import apply_thread_caps
 apply_thread_caps()
 
 import argparse  # noqa: E402
+import hashlib  # noqa: E402
 import json  # noqa: E402
 import os  # noqa: E402
 import sys  # noqa: E402
@@ -113,7 +123,41 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     p.add_argument("--rows", default="all", choices=("all", "evaluation"))
     p.add_argument("--models-dir", default=os.getenv("MODEL_PATH") or str(default_models_root()))
     p.add_argument("--pin-path", default=str(resolve_pin_path()))
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--mitre-run-id", default=None, help="Chapter 10 enrichment run to join as mitre_context")
+    g.add_argument("--with-mitre", action="store_true", help="join the newest Chapter 10 enrichment run for the profile")
     return p.parse_args(argv)
+
+
+def formula_hash(config: CRIConfig, available: set[str], mitre: dict | None) -> str:
+    """Configuration + available components + MITRE ruleset: what actually produced the numbers (N33)."""
+    body = {"config_hash": config.config_hash, "available": sorted(available),
+            "mitre_ruleset_hash": None if mitre is None else mitre.get("ruleset_hash"),
+            "mitre_reference_id": None if mitre is None else mitre.get("reference_id")}
+    return hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()[:12]
+
+
+def join_mitre(processed: Path, args, scores: pd.DataFrame, ctx: pd.DataFrame, fp: str, config: CRIConfig) -> dict:
+    """Add the Chapter 10 mitre_context column to ``ctx`` in place; return the lineage block."""
+    from app.mitre.sources import MitreSourceError, mitre_run_dir, read_context, read_meta
+
+    try:
+        mdir = mitre_run_dir(processed, args.mitre_run_id, args.profile)
+        mmeta = read_meta(mdir)
+        if (mmeta.get("features") or {}).get("fingerprint") != fp:
+            raise CRIBatchRefused(f"enrichment run {mdir.name} was made from another matrix (fingerprint differs)")
+        decades = (mmeta.get("reference") or {}).get("rarity_decades")
+        if decades != config.rarity_decades:
+            raise CRIBatchRefused(f"enrichment run {mdir.name} uses rarity_decades={decades}, the CRI {config.rarity_decades}")
+        mctx = read_context(mdir, scores[["user_id", "date"]])
+    except MitreSourceError as exc:
+        raise CRIBatchRefused(str(exc)) from exc
+    ctx["mitre_context"] = mctx["mitre_context"].to_numpy(dtype="float64", na_value=np.nan)
+    status = mctx["mitre_status"].astype(str)
+    return {"mitre_run_id": mdir.name, "path": str(mdir), "ruleset_version": mmeta.get("ruleset_version"),
+            "ruleset_hash": mmeta.get("ruleset_hash"), "attack_version": (mmeta.get("table") or {}).get("attack_version"),
+            "reference_id": (mmeta.get("reference") or {}).get("reference_id"),
+            "status_on_scored_rows": {k: int((status == k).sum()) for k in ("mapped", "unmapped", "not_evaluated")}}
 
 
 def run(args: argparse.Namespace) -> dict:
@@ -151,12 +195,13 @@ def run(args: argparse.Namespace) -> dict:
     feats = read_feature_columns(features_path, scores[["user_id", "date"]])
     ctx = build_context(scores[["user_id", "date"]], feats, load_roles(processed), config.privileged_roles)
     del feats
+    mitre = join_mitre(processed, args, scores, ctx, fp, config) if (args.mitre_run_id or args.with_mitre) else None
     parts = engine.components(scores, ctx)
     risk = engine.assemble(scores, ctx, parts, config)
     compute_seconds = time.perf_counter() - t0
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    cri_run_id = f"{stamp}-{args.profile}-cri-{config.variant_name}"
+    cri_run_id = f"{stamp}-{args.profile}-cri-{config.variant_name}" + ("-mitre" if mitre else "")
     out_dir = processed / "risk" / "chapter9" / cri_run_id
     risk.insert(len(risk.columns), "cri_run_id", cri_run_id)
     risk.insert(len(risk.columns), "source_batch_run_id", batch.batch_run_id)
@@ -177,6 +222,8 @@ def run(args: argparse.Namespace) -> dict:
         "config_overrides": dict(config.overrides),
         "is_calibrated_default": config.variant_name == "default" and config.config_hash == cal_hash,
         "effective_weights": config.effective_weights(parts["available"]),
+        "formula_hash": formula_hash(config, parts["available"], mitre),
+        "mitre": mitre,
         "unavailable_components": parts["unavailable"],
         "calibration": engine.calibration.describe(),
         "served": {k: served.get(k) for k in ("model_name", "model_version", "registry_version", "run_id")},
@@ -200,6 +247,7 @@ def run(args: argparse.Namespace) -> dict:
         "calibration_id": engine.calibration.calibration_id, "served_model": served.get("model_name"),
         "served_registry_version": served.get("registry_version"), "served_model_version": served.get("model_version"),
         "source_batch_run_id": batch.batch_run_id, "rows": summary["rows"], "severity": summary["severity"],
+        "mitre_run_id": None if mitre is None else mitre["mitre_run_id"], "formula_hash": meta["formula_hash"],
         "wall_seconds": meta["wall_seconds"], "compute_seconds": meta["compute_seconds"],
         "peak_rss_mb": meta["peak_rss_mb"], "output": meta["output"],
     })

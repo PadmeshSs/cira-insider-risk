@@ -15,7 +15,7 @@ def _isolated_runlog(tmp_path, monkeypatch):
 
 @pytest.fixture(scope="session", autouse=True)
 def _no_developer_cri_env():
-    """Tests never see CRI_* or a CRI calibration pin from the developer's shell or .env.
+    """Tests never see CRI_*, MITRE_* or a CRI/MITRE pin from the developer's shell or .env.
 
     Session-scoped so it is in place before any module-scoped fixture runs;
     the sign-off script loads the repository .env into the environment its
@@ -23,7 +23,7 @@ def _no_developer_cri_env():
     Tests that need an override set it themselves with monkeypatch.
     """
     mp = pytest.MonkeyPatch()
-    for key in [k for k in os.environ if k.startswith("CRI_") or k == "CIRA_CRI_CALIBRATION"]:
+    for key in [k for k in os.environ if k.startswith(("CRI_", "MITRE_")) or k in ("CIRA_CRI_CALIBRATION", "CIRA_MITRE_REFERENCE")]:
         mp.delenv(key)
     yield
     mp.undo()

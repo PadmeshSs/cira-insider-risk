@@ -23,14 +23,17 @@ passes its checks.
 | 7 | TabNet, model registry, same-harness comparison with the baselines | IMPLEMENTED |
 | 8 | Anomaly scoring service, served-model decision, batch scoring, API model loading | IMPLEMENTED; serving gbdt v0003 |
 | 9 | Contextual Risk Intelligence (CRI), Asset entity | IMPLEMENTED; calibrated for gbdt v0003 |
-| 10-16 | MITRE, XAI, alerts, API, dashboard, evaluation | PLANNED |
+| 10 | MITRE ATT&CK enrichment (19.2), MITREMapping entity, CRI `mitre_context` | IMPLEMENTED; reference 20260929T184428Z-full-mitre, ATT&CK 19.2 |
+| 11-16 | XAI, alerts, API, dashboard, evaluation | PLANNED |
 | 17-18 | Kafka, Redis, Celery, SSE, OpenSearch, observability, K8s | NOT IMPLEMENTED (production extensions) |
 
-See `docs/audits/chapter_1_5_audit.md`, `docs/audits/chapter_6_audit.md` and `docs/audits/chapter_7_audit.md` and `docs/audits/chapter_8_audit.md` for the chapter reviews, and
+See `docs/audits/chapter_1_5_audit.md`, `docs/audits/chapter_6_audit.md` and `docs/audits/chapter_7_audit.md`, `docs/audits/chapter_8_audit.md`, `docs/audits/chapter_9_audit.md` and
+`docs/audits/chapter_10_audit.md` for the chapter reviews, and
 `docs/CARRY_FORWARD.md` for the rules every later chapter must follow.
 Chapter 6 is described in `docs/chapters/chapter_6_baselines.md`, Chapter 7
 in `docs/chapters/chapter_7_tabnet.md`, Chapter 8 in
-`docs/chapters/chapter_8_scoring.md`, Chapter 9 in `docs/chapters/chapter_9_cri.md`.
+`docs/chapters/chapter_8_scoring.md`, Chapter 9 in `docs/chapters/chapter_9_cri.md`,
+Chapter 10 in `docs/chapters/chapter_10_mitre.md`.
 
 ## Running Chapter 5
 
@@ -149,6 +152,31 @@ Remove any `CRI_*` values from your `.env` that differ from `.env.example`;
 an override is reported and the run is then not the calibrated default.
 Apply the `assets` migration with `alembic upgrade head`. Design, the
 formula and the bands: `docs/chapters/chapter_9_cri.md`.
+
+## Running Chapter 10
+
+Chapter 10 maps behaviour CERT r4.2 actually records to candidate ATT&CK
+techniques per user-day, and turns the strongest one into the CRI's
+`mitre_context`. It reads behaviour only, never a model score, because the
+served XGBoost and the shadow TabNet find different insiders; a technique
+on a user-day does not change with the served model (N42). From `backend/`,
+after Chapter 9 and with `MITRE_ATTACK_VERSION=19.2` in `.env`:
+
+```bash
+python -m app.mitre.calibrate --profile full          # label-free; pins experiments/chapter10_mitre_reference.json
+python -m app.mitre.batch --profile full              # enrichment run to <CERT_PROCESSED_DIR>/mitre/chapter10/<run id>/
+python -m app.cri.batch --profile full --with-mitre   # CRI with mitre_context; run id ends in -mitre
+python ../scripts/verify_chapter10.py --profile full --no-readout
+python ../scripts/verify_chapter9.py --profile full --cri-run-id <the -mitre run> --no-readout
+python -m app.mitre.evaluate --profile full           # validation readout, once (reads labels)
+python ../scripts/verify_chapter10.py --profile full
+alembic upgrade head                                  # mitre_mappings table
+```
+
+The ATT&CK technique table is committed under `backend/app/mitre/data/`.
+`python -m app.mitre.stix_loader --download` regenerates it from the pinned
+bundle and is only needed if the pin changes. Design, the rules, what is
+deliberately left unmapped and why: `docs/chapters/chapter_10_mitre.md`.
 
 ## Tests
 

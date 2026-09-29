@@ -52,6 +52,12 @@ How to use it when prompting a chapter:
 | N38 Chapter 9 status (RETIRED) | - |
 | N39 bands are global; budgets are per day | 12, 14, 16 |
 | N40 the default CRI ranks below the anomaly score (validation) | 12, 14, 16, 19 (reporting) |
+| N41 MITRE rules touch public scenario behaviour | 11, 16, 19 (reporting) |
+| N42 the MITRE layer is model-free | 11, 12, 13, 14, 16 |
+| N43 MITRE rules fixed a priori; its test readout is Chapter 16 | 16, 19 (reporting) |
+| N44 Chapter 10 status (RETIRED) | - |
+| N45 a technique is context, not a model reason | 11, 12, 14 |
+| N46 MITRE lifts scenario 1 and costs scenario 2 (validation) | 11, 12, 14, 16, 19 (reporting) |
 
 ---
 
@@ -573,3 +579,123 @@ to 11/14; scenario-1 days at top-1 from 7/19 to 9/19; scenario-2 days from
 - Chapter 16 ablation C reads, on test and once: the anomaly score, the
   default CRI and every leave-one-out variant.
 
+## N41. The MITRE rules touch behaviour the public scenarios describe  (from Chapter 10)
+
+The four rules (`app/mitre/mapping_rules.py`) were written from the ATT&CK
+19.2 definitions and the Chapter 5 column definitions, never from answer
+files or from which users a rule fires on. But the public r4.2 scenario
+descriptions are known, and three rules touch behaviour they name:
+removable-media copies (R01), a leak site (R02), a keylogger site (R04).
+
+- A scenario gain from `mitre_context` is partly by construction of the
+  dataset, like user_context and scenario 3 (N36). Never cite it on its own;
+  report it next to the `no_mitre_context` ablation.
+- The readout carries this disclosure in its `disclosure` field; the audit
+  and the Chapter 19 write-up repeat it.
+- Any new rule follows N7's provenance rule: added by technique and by
+  column meaning, reviewed label-blind, with a ruleset version bump.
+
+## N42. The MITRE layer is model-free  (from Chapter 10)
+
+The enrichment reads only Chapter 5 behaviour columns, never an anomaly
+score. Its rarity reference is fitted on the validation users of the shared
+split file (N11), not on a model's batch. The served XGBoost and the shadow
+TabNet rank user-days very differently (validation Spearman 0.285); a
+technique on a user-day must not change with the served model.
+
+- A `CIRA_SERVED_MODEL` rollback needs no MITRE refit. The CRI that consumes
+  `mitre_context` still needs its own recalibration (N29, N33).
+- No module under `app/mitre/` except `evaluate.py` may read a score. The
+  verifier FAILs a run or reference holding a model column.
+- `evaluate.py` reads the shadow's scores for the disagreement view only
+  (N32 monitoring). Nothing is ensembled.
+
+## N43. MITRE rules are fixed a priori; its test readout is Chapter 16  (from Chapter 10)
+
+The ruleset `c10-rules-v1` (hash in every run) and the MITRE weight (0.10,
+unchanged since Chapter 9) were fixed before any MITRE number existed.
+Chapter 10 reads MITRE context on validation only, once
+(`experiments/chapter10_validation_readout.json`).
+
+- Guard `c10-mitre-guard-v1` WARNs on any validation loss of the CRI with
+  MITRE against the CRI without it. A WARN is explained in the audit; it is
+  never a reason to change a rule, a grade or the weight.
+- A later rule change is a new ruleset version, refit with
+  `python -m app.mitre.calibrate --supersede "<reason>"`, recorded with
+  whether validation numbers informed it.
+- The test readout is Chapter 16's ablation D, once.
+- The benign mapped share (how many ordinary user-days carry a technique)
+  is quoted next to any MITRE detection number. It is the analyst's cost.
+
+## N44. Chapter 10 is PARTIALLY IMPLEMENTED until real runs exist  (from Chapter 10)
+
+RETIRED (chapter 10, runs verified; see `docs/audits/chapter_10_audit.md`).
+
+The MITRE code is tested on synthetic data only. The technique table is
+real: it was generated from the pinned ATT&CK 19.2 bundle (sha256
+`dc1639ca...`). Chapter 10 becomes IMPLEMENTED when all of the following
+hold on the full profile:
+
+- `experiments/chapter10_mitre_reference.json` is pinned by
+  `python -m app.mitre.calibrate --profile full` and committed;
+- a full enrichment run and a `cri.batch --with-mitre` run pass
+  `scripts/verify_chapter10.py --no-readout` with 0 FAIL, and
+  `scripts/verify_chapter9.py --cri-run-id <mitre run> --no-readout`
+  with 0 FAIL;
+- the validation readout is written once and the verifier passes again
+  with it;
+- `/health` shows the `mitre` block loaded on the development machine;
+- `docs/audits/chapter_10_audit.md` records those runs and explains every
+  WARN.
+
+Until then no MITRE number on CERT is quoted anywhere. Mark this note
+RETIRED when that is done.
+
+## N45. A technique is context, not a model reason  (from Chapter 10)
+
+A mapped technique says what ATT&CK calls the observed behaviour. It does
+not say why the model scored the user-day (N30).
+
+- Chapter 11 lists MITRE matches in their own section, with the rule, the
+  triggering column and value, and the evidence grade. It never presents
+  them as model factors.
+- An `indicated` match is shown as indicated: "visited a leak site", never
+  "exfiltrated data". r4.2 records no upload, bytes or method (N9).
+- An `unmapped` user-day is shown as unmapped, with its
+  `mitre_unmapped_behaviours` tags. Job search is shown as "no ATT&CK
+  technique", not left blank.
+- The dashboard never shows the MITRE points of a benign-looking day as an
+  accusation. Most mapped days are ordinary (N43, benign mapped share).
+
+## N46. MITRE lifts scenario 1 and costs scenario 2 on validation  (from Chapter 10 runs)
+
+Full / user validation, primary view (`experiments/chapter10_validation_readout.json`), served
+gbdt v0003:
+
+| Ranking | PR-AUC | Caught@1 | s1 days@1 | s2 days@1 | s3 days@1 |
+|---|---|---|---|---|---|
+| anomaly score | 0.915 | 9/14 | 7/19 | 125/179 | 2/4 |
+| CRI without MITRE | 0.694 | 11/14 | 9/19 | 110/179 | 1/4 |
+| CRI with MITRE | 0.557 | 13/14 | 13/19 | 93/179 | 1/4 |
+| TabNet anomaly score (reference) | 0.749 | 12/14 | 14/19 | 97/179 | 0/4 |
+
+Of the 8 scenario-1 days TabNet caught and XGBoost missed at top-1, all 8 are mapped and the CRI with
+MITRE puts 6 at top-1 (2 without). MITRE context alone reaches 12/19 scenario-1 days and 0/179
+scenario-2 days. 27% of benign validation user-days carry a mapped technique.
+
+- The scenario-1 gain is partly by construction (N41), from six insiders and one seed. Never quote it
+  without the `no_mitre_context` row, the benign mapped share and that caveat.
+- The scenario-2 loss (110 to 93 days) drives the PR-AUC drop (0.694 to 0.557). Its mechanism is not
+  established; the likely one is weakly graded common matches losing daily top-1 slots to rarer ones.
+  Do not state it as shown.
+- Rules, grades and the MITRE weight stay as fixed (N43). A configuration found by looking at this
+  readout is validation-informed and is recorded as such.
+- Chapter 12 must choose the analyst-queue ordering explicitly (N40). No ordering dominates on
+  validation: the anomaly score ranks best overall, the CRI with MITRE catches the most insiders at
+  top-1. The choice and both views are reported.
+- The severity bands shifted when MITRE joined (HIGH 245 to 151, CRITICAL 2 to 0 over all rows)
+  because renormalisation lowered the anomaly weight to 0.600. Chapter 12's band policy uses the
+  with-MITRE run's volumes, not Chapter 9's.
+- Chapter 16 ablation D reads the anomaly score, the CRI with and without MITRE, and MITRE alone on
+  test, once, per scenario, with seeds and bootstrap intervals, before anything beyond "on validation"
+  is claimed.

@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 
-from app.database.models import Configuration, User  # noqa: F401  (registers ORM metadata)
+from app.database.models import Configuration, MITREMapping, User  # noqa: F401  (registers ORM metadata)
 
 
 @asynccontextmanager
@@ -28,9 +28,17 @@ async def lifespan(app: FastAPI):
     from app.cri.runtime import CRIRuntime
 
     app.state.cri = CRIRuntime.load(app.state.scoring)
+
+    # Chapter 10: the technique table and the MITRE reference. Model-free
+    # (N42), so it loads whatever model is served; if it cannot load, the
+    # ``mitre`` block of /health says why and no mitre_context is produced.
+    from app.mitre.runtime import MitreRuntime
+
+    app.state.mitre = MitreRuntime.load()
     yield
     app.state.scoring = None
     app.state.cri = None
+    app.state.mitre = None
 
 
 app = FastAPI(
@@ -45,6 +53,7 @@ async def health(request: Request) -> dict:
     service = getattr(request.app.state, "scoring", None)
     model = service.status() if service is not None else {"status": "unavailable", "reason": "scoring service not started"}
     cri = getattr(request.app.state, "cri", None)
+    mitre = getattr(request.app.state, "mitre", None)
     # The top-level status keeps its Chapter 8 meaning (anomaly model loaded);
     # the CRI reports its own status until Chapter 13 adds the risk routes.
     return {
@@ -52,6 +61,7 @@ async def health(request: Request) -> dict:
         "service": "cira-backend",
         "anomaly_model": model,
         "cri": cri.status() if cri is not None else {"status": "unavailable", "reason": "CRI not started"},
+        "mitre": mitre.status() if mitre is not None else {"status": "unavailable", "reason": "MITRE not started"},
     }
 
 

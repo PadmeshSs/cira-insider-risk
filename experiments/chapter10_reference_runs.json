@@ -1,0 +1,30 @@
+{
+  "description": "Reported Chapter 10 runs (CARRY_FORWARD N44, N46). Chapter 11 reads MITRE matches from this enrichment run; Chapter 12 persists them for alert-linked user-days; Chapter 16's ablation D recombines the components of this CRI run on test. If anything is re-run for the record, change it here and in docs/audits/chapter_10_audit.md.",
+  "attack": {
+    "version": "19.2",
+    "bundle_sha256": "dc1639caa5501d720e280cf1cbd8fbe009884a0c9b3e6e9ed9d0c25166c3d8f4",
+    "table_sha256": "f33bc9d44e57e7e1e87b34e2fe3d670108239e14f503de1cc454a6033270c154"
+  },
+  "ruleset": {
+    "version": "c10-rules-v1",
+    "hash": "d58ec9c75bc6"
+  },
+  "mitre_reference_id": "20260929T184428Z-full-mitre",
+  "mitre_run_id": "20260929T184439Z-full-mitre",
+  "cri_run_id": "20260929T184445Z-full-cri-default-mitre",
+  "cri_formula_hash": "3bea2eac4884",
+  "cri_config_hash": "297bbbe7add7",
+  "cri_calibration_id": "20260929T095921Z-full-cri",
+  "chapter9_cri_run_id_without_mitre": "20260929T095927Z-full-cri-default",
+  "served": {
+    "model_name": "gbdt",
+    "registry_version": "v0003",
+    "model_version": "gbdt-chapter8-v1-077a3dae6cee",
+    "run_id": "20260928T194711Z-full-user-s42",
+    "profile": "full"
+  },
+  "chapter8_batch_run_id": "20260928T194858Z-full-batch",
+  "features_fingerprint": "4f09afb11a8f",
+  "validation_readout": "chapter10_validation_readout.json",
+  "recorded_at": "2026-09-29T18:49:20+00:00"
+}
