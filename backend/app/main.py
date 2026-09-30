@@ -35,10 +35,19 @@ async def lifespan(app: FastAPI):
     from app.mitre.runtime import MitreRuntime
 
     app.state.mitre = MitreRuntime.load()
+
+    # Chapter 11: the explainer for the model served now (N30): TreeSHAP for
+    # XGBoost, masks for TabNet. If it cannot be built, the API still starts,
+    # the ``explainability`` block of /health says why, and an alert keeps its
+    # score and context with its explanation deferred (Architecture §36).
+    from app.explainability.runtime import ExplainRuntime
+
+    app.state.explain = ExplainRuntime.load(app.state.scoring)
     yield
     app.state.scoring = None
     app.state.cri = None
     app.state.mitre = None
+    app.state.explain = None
 
 
 app = FastAPI(
@@ -54,6 +63,7 @@ async def health(request: Request) -> dict:
     model = service.status() if service is not None else {"status": "unavailable", "reason": "scoring service not started"}
     cri = getattr(request.app.state, "cri", None)
     mitre = getattr(request.app.state, "mitre", None)
+    explain = getattr(request.app.state, "explain", None)
     # The top-level status keeps its Chapter 8 meaning (anomaly model loaded);
     # the CRI reports its own status until Chapter 13 adds the risk routes.
     return {
@@ -62,6 +72,8 @@ async def health(request: Request) -> dict:
         "anomaly_model": model,
         "cri": cri.status() if cri is not None else {"status": "unavailable", "reason": "CRI not started"},
         "mitre": mitre.status() if mitre is not None else {"status": "unavailable", "reason": "MITRE not started"},
+        "explainability": (explain.status() if explain is not None
+                           else {"status": "unavailable", "reason": "explainability not started"}),
     }
 
 

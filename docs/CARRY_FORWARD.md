@@ -58,6 +58,13 @@ How to use it when prompting a chapter:
 | N44 Chapter 10 status (RETIRED) | - |
 | N45 a technique is context, not a model reason | 11, 12, 14 |
 | N46 MITRE lifts scenario 1 and costs scenario 2 (validation) | 11, 12, 14, 16, 19 (reporting) |
+| N47 explanations add up to the served margin | 12, 13, 14, 16 |
+| N48 KernelSHAP corroborates, it never explains | 12, 14, 16, 19 (reporting) |
+| N49 Chapter 11 status (RETIRED) | - |
+| N50 Chapter 12 persists explanations; one explanation per score | 12, 13, 14 |
+| N51 the TabNet mask view is a readout, not a reason | 14, 16, 19 (reporting) |
+| N52 USB disconnects lead the false alarms (validation) | 12, 14, 16, 19 (reporting) |
+| N53 TabNet and XGBoost explain the same days differently (validation) | 16, 19 (reporting) |
 
 ---
 
@@ -699,3 +706,125 @@ scenario-2 days. 27% of benign validation user-days carry a mapped technique.
 - Chapter 16 ablation D reads the anomaly score, the CRI with and without MITRE, and MITRE alone on
   test, once, per scenario, with seeds and bootstrap intervals, before anything beyond "on validation"
   is claimed.
+
+## N47. Explanations add up to the served margin  (from Chapter 11)
+
+The model-side explanation of an XGBoost score is XGBoost's own TreeSHAP with
+`iteration_range = (0, best_iteration + 1)`. Its contributions plus the
+expected value must equal the margin the served model produces (1e-3), and
+that margin must equal the Chapter 8 batch's `raw_score` (1e-4). A row that
+does not add up is refused, never explained.
+
+- An explain run belongs to one served model_version and one Chapter 8
+  batch. A new served model, a rollback or a new batch means a new explain
+  run; the batch refuses a batch scored by another model (N30).
+- Contributions are in log-odds of the margin. They are written as "raised /
+  lowered the score by x log-odds", never as a change in probability (N20).
+- Any later code that computes TreeSHAP (the dashboard, Chapter 16) goes
+  through `app.explainability.shap_explainer.TreeShapExplainer`, so the
+  iteration range and the additivity check come with it.
+
+## N48. KernelSHAP corroborates, it never explains  (from Chapter 11)
+
+KernelSHAP runs on a bounded, label-free set (`c11-selection-v1`), against a
+background of 50 training user-days of the served model, with
+`nsamples = 2 * M + 2048` (C11-2, C11-3). It estimates interventional SHAP;
+TreeSHAP computes the path-dependent value. They are expected to differ.
+
+- KernelSHAP values are never shown to an analyst as a reason. They are an
+  agreement statistic next to the explanation.
+- Low agreement or a weak deletion check is a verifier WARN, explained in
+  the audit. It is never a reason to change the model or the explainer.
+- Agreement is not evidence that an explanation is correct, and it is not a
+  detection metric. Report it as "two estimators agree on N of M rows".
+
+## N49. Chapter 11 is PARTIALLY IMPLEMENTED until real runs exist  (from Chapter 11)
+
+RETIRED (chapter 11, runs verified; see `docs/audits/chapter_11_audit.md`).
+
+The explainability code is tested on the synthetic tree only, with real
+XGBoost and TabNet models trained there. Chapter 11 becomes IMPLEMENTED when
+all of the following hold on the full profile:
+
+- a full explain run (`python -m app.explainability.batch --profile full`)
+  passes `scripts/verify_chapter11.py --profile full --no-readout` with 0 FAIL;
+- the validation readout is written once
+  (`python -m app.explainability.evaluate --profile full`) and the verifier
+  passes again with it;
+- `/health` shows the `explainability` block loaded on the development
+  machine;
+- `docs/audits/chapter_11_audit.md` records the run ids, the wall-clock and
+  peak RSS of the batch, and explains every WARN (including KernelSHAP
+  agreement and any guard warning).
+
+Until then no explanation statistic on CERT is quoted anywhere. Mark this
+note RETIRED when that is done.
+
+## N50. Chapter 12 persists explanations; one explanation per score  (from Chapter 11)
+
+HCEA D-5 caches explanations in `AlertReason`. Chapter 11 writes them to
+Parquet and `reasons.jsonl` (C11-5).
+
+- Chapter 12 creates `AlertReason` rows from `build_explanation` output for
+  its alert rows, keyed by user-day, model_version and explain_run_id. Every
+  row keeps its section (`model`, `cri` or `mitre`) and its `source`, so a
+  reason can be traced back through the §37 lineage chain.
+- Alert rows that are not in the bounded set are explained on demand
+  through the same builder; TreeSHAP for every row is already in the explain
+  run. An alert whose explanation cannot be built is still persisted, with
+  status `model_explanation_deferred` and the reason (§36).
+- The risk row and the attributions of one explanation must come from the
+  same score: the builder refuses a mismatch, and Chapter 12 must not work
+  around it by mixing runs.
+- The dashboard (Chapter 14) shows the three sections separately, with their
+  headings, and never presents a CRI point or an ATT&CK match as a model
+  factor (N34, N45).
+
+## N51. The TabNet mask view is a readout, not a reason  (from Chapter 11)
+
+With XGBoost served, TabNet's masks exist only in the validation readout's
+"second model's view", computed on the shadow model (N30, N32).
+
+- The dashboard does not show masks for an alert. If a mask panel is ever
+  added, it is labelled as the shadow model's view and appears apart from
+  the explanation.
+- The Chapter 19 write-up can cite the mask view as the evidence for or
+  against "the case for TabNet rests on its masks" (N23, N26), with its
+  caveats: validation only, one seed, per scenario, six scenario-1 insiders
+  (N15), and partly by construction where a feature matches a public
+  scenario description (N41).
+- If TabNet is ever served, its masks become the model-side explanation
+  automatically (`explainer_for`), and they are worded as attention, never
+  as "raised the score".
+
+## N52. USB disconnects lead the false alarms  (from Chapter 11 runs)
+
+Full / user validation, primary view (`experiments/chapter11_validation_readout.json`), served gbdt
+v0003: on the 366 benign validation days in the served model's daily top-1, the top raising factor is
+`usb_disconnect_count` on 192 (52%), and the device domain supplies half of their top-three factors.
+The same feature leads 38 of 179 scenario-2 malicious days.
+
+- It is the explanation an analyst would read most often on a wrong alert. Chapter 12's alert policy
+  reports how many alerts it leads, and Chapter 14 shows the value next to it (a count of
+  disconnects, not a claim about data).
+- Why the model weights it this way is not established. One seed, validation only.
+- Nothing is retuned on this. A model or feature change motivated by it is validation-informed and is
+  recorded as such; only Chapter 16's test readout can say whether it holds.
+
+## N53. TabNet and XGBoost explain the same days differently  (from Chapter 11 runs)
+
+On the same malicious validation days, the shadow TabNet's top-five mask features and the served
+XGBoost's top-five TreeSHAP features overlap by a mean Jaccard of 0.053 (scenario 1), 0.065
+(scenario 2) and 0.156 (scenario 3, four days). TabNet's top mask feature is `usb_off_hours_events`
+on 15 of 19 scenario-1 days and 112 of 179 scenario-2 days, and `is_weekend` on 31 scenario-2 days.
+XGBoost's top factor is `http_leak_paste_count` on 15 of 19 scenario-1 days and
+`peer_dev_http_request_count` on 114 of 179 scenario-2 days.
+
+- The write-up can say the two models rely on different evidence. It cannot say either is right for
+  the right reasons: both leading features match public scenario descriptions (N41), and a mask is
+  attention, not direction (N51).
+- TabNet's calendar-led days (31 of 179 in scenario 2) are reported next to any claim that its masks
+  make TabNet the more interpretable model (N23, N26).
+- Chapter 16 repeats the comparison on test, per scenario, with seeds, before anything beyond "on
+  validation" is claimed.
+

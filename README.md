@@ -24,16 +24,18 @@ passes its checks.
 | 8 | Anomaly scoring service, served-model decision, batch scoring, API model loading | IMPLEMENTED; serving gbdt v0003 |
 | 9 | Contextual Risk Intelligence (CRI), Asset entity | IMPLEMENTED; calibrated for gbdt v0003 |
 | 10 | MITRE ATT&CK enrichment (19.2), MITREMapping entity, CRI `mitre_context` | IMPLEMENTED; reference 20260929T184428Z-full-mitre, ATT&CK 19.2 |
-| 11-16 | XAI, alerts, API, dashboard, evaluation | PLANNED |
+| 11 | Explainability: TreeSHAP on the served XGBoost, KernelSHAP corroboration, TabNet mask view, analyst reasons | IMPLEMENTED; explain run 20260930T190519Z-full-explain |
+| 12-16 | Alerts, API, dashboard, evaluation | PLANNED |
 | 17-18 | Kafka, Redis, Celery, SSE, OpenSearch, observability, K8s | NOT IMPLEMENTED (production extensions) |
 
 See `docs/audits/chapter_1_5_audit.md`, `docs/audits/chapter_6_audit.md` and `docs/audits/chapter_7_audit.md`, `docs/audits/chapter_8_audit.md`, `docs/audits/chapter_9_audit.md` and
-`docs/audits/chapter_10_audit.md` for the chapter reviews, and
+`docs/audits/chapter_10_audit.md` and `docs/audits/chapter_11_audit.md` for the chapter reviews, and
 `docs/CARRY_FORWARD.md` for the rules every later chapter must follow.
 Chapter 6 is described in `docs/chapters/chapter_6_baselines.md`, Chapter 7
 in `docs/chapters/chapter_7_tabnet.md`, Chapter 8 in
 `docs/chapters/chapter_8_scoring.md`, Chapter 9 in `docs/chapters/chapter_9_cri.md`,
-Chapter 10 in `docs/chapters/chapter_10_mitre.md`.
+Chapter 10 in `docs/chapters/chapter_10_mitre.md`, Chapter 11 in
+`docs/chapters/chapter_11_explainability.md`.
 
 ## Running Chapter 5
 
@@ -177,6 +179,29 @@ The ATT&CK technique table is committed under `backend/app/mitre/data/`.
 `python -m app.mitre.stix_loader --download` regenerates it from the pinned
 bundle and is only needed if the pin changes. Design, the rules, what is
 deliberately left unmapped and why: `docs/chapters/chapter_10_mitre.md`.
+
+## Running Chapter 11
+
+Chapter 11 explains why a user-day was scored as it was. Chapter 8 serves the
+behaviour-only XGBoost, so the model-side explanation is exact TreeSHAP on that
+model, checked on every row to add up to the margin it scored (N30, N47).
+KernelSHAP runs on a bounded, label-free set as the corroborating signal (HCEA
+D-5). TabNet's masks appear only in the offline readout, labelled as the shadow
+model's view (N32). An explanation keeps model factors, CRI points and ATT&CK
+context in separate sections, each traced to its source. From `backend/`, after
+Chapter 10:
+
+```bash
+python -m app.explainability.batch --profile full        # every user-day + the bounded set
+python ../scripts/verify_chapter11.py --profile full --no-readout
+python -m app.explainability.evaluate --profile full     # validation readout, once (reads labels)
+python ../scripts/verify_chapter11.py --profile full
+```
+
+Runs go to `<CERT_PROCESSED_DIR>/explanations/chapter11/<run id>/`; the written
+explanations for the bounded set are in `reasons.jsonl`. `/health` gains an
+`explainability` block. Design, the deviations from D-5 and what makes the
+chapter IMPLEMENTED: `docs/chapters/chapter_11_explainability.md`.
 
 ## Tests
 

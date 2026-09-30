@@ -1,0 +1,27 @@
+{
+  "description": "Reported Chapter 11 run (CARRY_FORWARD N47-N53). Chapter 12 builds AlertReason rows with the same explainer and reads TreeSHAP attributions from this run; Chapter 16 reads explanation statistics on test. The Chapter 8 batch, CRI run and enrichment run it explains are recorded in the run's explain_meta.json. If anything is re-run for the record, change it here and in docs/audits/chapter_11_audit.md.",
+  "explain_version": "chapter11-v1",
+  "explain_run_id": "20260930T190519Z-full-explain",
+  "method": "treeshap",
+  "served": {
+    "model_name": "gbdt",
+    "registry_version": "v0003",
+    "model_version": "gbdt-chapter8-v1-077a3dae6cee",
+    "best_iteration": 590,
+    "n_inputs": 106
+  },
+  "shadow_in_readout_only": {
+    "model_name": "tabnet",
+    "registry_version": "v0005",
+    "model_version": "tabnet-chapter7-v1-e03b3d0d3360"
+  },
+  "selection_rule": "c11-selection-v1",
+  "kernel": {"rows": 300, "n_background": 50, "nsamples": 2260},
+  "features_fingerprint": "4f09afb11a8f",
+  "verification": {
+    "before_readout": "verification_20260930T191005Z",
+    "after_readout": "verification_20260930T191038Z"
+  },
+  "validation_readout": "chapter11_validation_readout.json",
+  "recorded_at": "2026-09-30T19:10:38+00:00"
+}

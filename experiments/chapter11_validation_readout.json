@@ -1,0 +1,161 @@
+{
+  "chapter": 11,
+  "part": "validation",
+  "view": "primary (N1); masquerade account-days excluded from benign",
+  "explain_run_id": "20260930T190519Z-full-explain",
+  "served": {
+    "model_name": "gbdt",
+    "registry_version": "v0003",
+    "model_version": "gbdt-chapter8-v1-077a3dae6cee",
+    "run_id": "20260928T194711Z-full-user-s42",
+    "profile": "full",
+    "trained_at": "2026-09-28T19:47:55+00:00",
+    "split_mode": "user",
+    "n_input_columns": 106,
+    "static_inputs": [],
+    "device": "cpu",
+    "artifact_dir": "C:\\Users\\padme\\Desktop\\Padmesh 's\\Side Hustles\\FRONT END DEVELOPING\\Projects\\Portfolio\\cira-insider-risk\\models\\saved_models\\gbdt\\v0003"
+  },
+  "method": "treeshap",
+  "malicious_days_by_scenario": {
+    "1": {
+      "days": 19,
+      "no_raising_factor": 0,
+      "top_factor_counts": {
+        "http_leak_paste_count": 15,
+        "hist_z_usb_connect_count": 2,
+        "usb_disconnect_count": 1,
+        "logoff_count": 1
+      },
+      "top_factor_is_calendar_share": 0.0,
+      "top3_domain_share": {
+        "device": 0.3158,
+        "http": 0.2632,
+        "historical_baseline": 0.193,
+        "peer_group": 0.1579,
+        "logon": 0.0526,
+        "email": 0.0175
+      }
+    },
+    "2": {
+      "days": 179,
+      "no_raising_factor": 0,
+      "top_factor_counts": {
+        "peer_dev_http_request_count": 114,
+        "usb_disconnect_count": 38,
+        "hist_z_emails_sent": 19,
+        "hist_z_usb_connect_count": 4,
+        "usb_connect_count": 3,
+        "peer_abs_dev_login_count": 1
+      },
+      "top_factor_is_calendar_share": 0.0,
+      "top3_domain_share": {
+        "peer_group": 0.4237,
+        "historical_baseline": 0.3145,
+        "device": 0.2429,
+        "http": 0.0151,
+        "email": 0.0038
+      }
+    },
+    "3": {
+      "days": 4,
+      "no_raising_factor": 0,
+      "top_factor_counts": {
+        "hist_z_emails_sent": 1,
+        "usb_disconnect_count": 1,
+        "usb_last_hour": 1,
+        "logoff_count": 1
+      },
+      "top_factor_is_calendar_share": 0.0,
+      "top3_domain_share": {
+        "device": 0.4167,
+        "historical_baseline": 0.3333,
+        "peer_group": 0.0833,
+        "file": 0.0833,
+        "logon": 0.0833
+      }
+    }
+  },
+  "false_alarms_at_top1": {
+    "definition": "benign validation days in the served model's daily top-1 (seeded tie-break)",
+    "days": 366,
+    "no_raising_factor": 7,
+    "top_factor_counts": {
+      "usb_disconnect_count": 192,
+      "peer_dev_http_request_count": 45,
+      "hist_z_usb_connect_count": 35,
+      "peer_abs_dev_login_count": 22,
+      "hist_abs_z_http_request_count": 16,
+      "hist_abs_z_usb_event_count": 13,
+      "hist_abs_z_emails_sent": 7,
+      "hist_abs_z_off_hours_login_ratio": 7
+    },
+    "top_factor_is_calendar_share": 0.0,
+    "top3_domain_share": {
+      "device": 0.5098,
+      "historical_baseline": 0.2827,
+      "peer_group": 0.1796,
+      "email": 0.0116,
+      "logon": 0.0081,
+      "file": 0.0046,
+      "http": 0.0035
+    }
+  },
+  "second_model_view": {
+    "available": true,
+    "label": "SECOND MODEL'S VIEW (shadow TabNet masks); never shown to an analyst (N30, N32)",
+    "model": {
+      "model_name": "tabnet",
+      "model_version": "tabnet-chapter7-v1-e03b3d0d3360",
+      "registry_version": "v0005",
+      "role": "shadow"
+    },
+    "by_scenario": {
+      "1": {
+        "days": 19,
+        "mask_top_factor_counts": {
+          "usb_off_hours_events": 15,
+          "hist_z_http_distinct_hosts": 2,
+          "weekend_login_ratio": 1,
+          "is_weekend": 1
+        },
+        "mean_top5_jaccard_with_treeshap": 0.0533625730994152
+      },
+      "2": {
+        "days": 179,
+        "mask_top_factor_counts": {
+          "usb_off_hours_events": 112,
+          "is_weekend": 31,
+          "hist_z_usb_connect_count": 17,
+          "file_archive_or_executable_count": 10,
+          "peer_median_http_distinct_hosts": 5,
+          "peer_abs_dev_http_request_count": 4
+        },
+        "mean_top5_jaccard_with_treeshap": 0.06525450031036623
+      },
+      "3": {
+        "days": 4,
+        "mask_top_factor_counts": {
+          "file_archive_or_executable_count": 2,
+          "hist_z_usb_connect_count": 1,
+          "peer_median_http_distinct_hosts": 1
+        },
+        "mean_top5_jaccard_with_treeshap": 0.15625
+      }
+    }
+  },
+  "guard": {
+    "version": "c11-explain-guard-v1",
+    "warn_if": [
+      "a static trait in the top 5 of any served explanation (N22)",
+      "a calendar column is the most frequent top factor of a scenario's malicious days"
+    ],
+    "effect": "WARN to be explained in docs/audits/chapter_11_audit.md; never changes the model or the explainer",
+    "warnings": []
+  },
+  "caveats": [
+    "one seed, validation only (N26); six scenario-1 insiders cannot settle a scenario claim (N15)",
+    "a factor that matches a public scenario description is partly by construction of the dataset (N41)"
+  ],
+  "written_at": "2026-09-30T19:10:14+00:00"
+}
