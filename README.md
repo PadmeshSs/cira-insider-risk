@@ -27,7 +27,8 @@ passes its checks.
 | 11 | Explainability: TreeSHAP on the served XGBoost, KernelSHAP corroboration, TabNet mask view, analyst reasons | IMPLEMENTED; explain run 20260930T190519Z-full-explain |
 | 12 | Alert correlation, deduplication and persistence; lineage entities | IMPLEMENTED; alert run 20261001T062628Z-full-alerts, policy 21cd9391fd48 |
 | 13 | FastAPI integration: twelve route groups, analyst login, on-demand scoring, `/health` readiness | IMPLEMENTED; serves alert run 20261001T062628Z-full-alerts, verifier 28 PASS / 0 FAIL |
-| 14-16 | Dashboard, end-to-end validation, evaluation | PLANNED |
+| 14 | React + TypeScript SOC dashboard: eight views over the Chapter 13 API | IMPLEMENTED on the synthetic chain; CERT full check pending |
+| 15-16 | End-to-end validation, evaluation | PLANNED |
 | 17-18 | Kafka, Redis, Celery, SSE, OpenSearch, observability, K8s | NOT IMPLEMENTED (production extensions) |
 
 See `docs/audits/chapter_1_5_audit.md`, `docs/audits/chapter_6_audit.md` and `docs/audits/chapter_7_audit.md`, `docs/audits/chapter_8_audit.md`, `docs/audits/chapter_9_audit.md` and
@@ -38,7 +39,8 @@ in `docs/chapters/chapter_7_tabnet.md`, Chapter 8 in
 `docs/chapters/chapter_8_scoring.md`, Chapter 9 in `docs/chapters/chapter_9_cri.md`,
 Chapter 10 in `docs/chapters/chapter_10_mitre.md`, Chapter 11 in
 `docs/chapters/chapter_11_explainability.md`, Chapter 12 in `docs/chapters/chapter_12_alerts.md`,
-Chapter 13 in `docs/chapters/chapter_13_api.md`.
+Chapter 13 in `docs/chapters/chapter_13_api.md`, Chapter 14 in `docs/chapters/chapter_14_dashboard.md`
+(run steps in `frontend/README.md`).
 
 ## Running Chapter 5
 

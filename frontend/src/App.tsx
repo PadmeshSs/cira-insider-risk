@@ -1,122 +1,54 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { createBrowserRouter, RouterProvider } from 'react-router'
+import { AppShell } from '@/components/layout/AppShell'
+import { RequireAuth } from '@/components/layout/RequireAuth'
+import { SkeletonRows } from '@/components/ui/States'
+import LoginPage from '@/pages/LoginPage'
 
-function App() {
-  const [count, setCount] = useState(0)
+/** Route modules load on demand, so the login screen does not wait for the chart library. */
+const page = (load: () => Promise<{ default: React.ComponentType }>) => async () => ({ Component: (await load()).default })
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+/**
+ * Eight views of Bible Chapter 14, each answering one §27 question:
+ *   Overview            who is risky?
+ *   Alerts              what happened?
+ *   Alert details       how risky is it?
+ *   Explainability      why is it risky?
+ *   ATT&CK context      what contextual evidence supports it?
+ *   User investigation  what should the analyst investigate?
+ *   Risk history        how has the user's risk moved over persisted days?
+ *   Login               the signed-in analyst (N65)
+ */
+const router = createBrowserRouter([
+  { path: '/login', element: <LoginPage /> },
+  {
+    element: <RequireAuth />,
+    children: [
+      {
+        element: <AppShell />,
+        hydrateFallbackElement: <SkeletonRows rows={8} />,
+        children: [
+          { index: true, lazy: page(() => import('@/pages/OverviewPage')) },
+          { path: 'alerts', lazy: page(() => import('@/pages/AlertsPage')) },
+          {
+            path: 'alerts/:alertId',
+            lazy: page(() => import('@/pages/AlertLayout')),
+            children: [
+              { index: true, lazy: page(() => import('@/pages/AlertSummaryPage')) },
+              { path: 'explain', lazy: page(() => import('@/pages/ExplainabilityPage')) },
+              { path: 'mitre', lazy: page(() => import('@/pages/MitreContextPage')) },
+            ],
+          },
+          { path: 'users', lazy: page(() => import('@/pages/UsersPage')) },
+          { path: 'users/:userId', lazy: page(() => import('@/pages/UserInvestigationPage')) },
+          { path: 'users/:userId/history', lazy: page(() => import('@/pages/RiskHistoryPage')) },
+          { path: 'system', lazy: page(() => import('@/pages/SystemPage')) },
+          { path: '*', lazy: page(() => import('@/pages/NotFoundPage')) },
+        ],
+      },
+    ],
+  },
+])
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+export default function App() {
+  return <RouterProvider router={router} />
 }
-
-export default App

@@ -80,6 +80,7 @@ How to use it when prompting a chapter:
 | N66 every list is paginated with a hard cap of 200 | 14, 17, 18 |
 | N67 a route is one return of a service call | 14, 17, 18 |
 | N68 /health's routes block is the readiness signal | 14, 15, 18 |
+| N69 dashboard computes nothing it displays | 14, 15, 17 |
 
 ---
 
@@ -1106,3 +1107,15 @@ not; the alert/risk/investigation group names the run it would serve.
 - Chapter 15's outage tests check `routes` as well as `database`.
 - Chapter 18's container healthcheck can keep calling `/health` at the root.
 
+
+## N69. The dashboard computes nothing it displays  (from Chapter 14)
+
+Every number in `frontend/` is read from an API response. The only computing route it calls,
+`POST /risk/score`, reproduces a stored decision and is labelled as not stored (N64). The browser adds
+only wording, formatting and arithmetic on returned values (percentages, sums used as checks, counts of
+returned buckets), each listed in `docs/chapters/chapter_14_dashboard.md` "What the frontend adds itself".
+
+- New views add an API field or route first (N67), never a client-side score, rank or aggregate of raw rows.
+- Provenance hues are fixed: cyan = served model, indigo = CRI context, fuchsia = ATT&CK. They never mark
+  severity, and severity colours never mark provenance.
+- Chapter 15's end-to-end test can drive the "Re-score this day" control as the lineage check.
