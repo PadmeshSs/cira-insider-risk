@@ -65,6 +65,14 @@ How to use it when prompting a chapter:
 | N51 the TabNet mask view is a readout, not a reason | 14, 16, 19 (reporting) |
 | N52 USB disconnects lead the false alarms (validation) | 12, 14, 16, 19 (reporting) |
 | N53 TabNet and XGBoost explain the same days differently (validation) | 16, 19 (reporting) |
+| N54 Chapter 12 status (RETIRED) | - |
+| N55 the alert queue is ordered by the anomaly score (validation-informed) | 13, 14, 16, 19 (reporting) |
+| N56 an idle user-day never takes a top-k slot | 13, 14, 16 |
+| N57 suppressed alerts are kept, and what they hide is reported | 13, 14, 16, 19 (reporting) |
+| N58 a load is one transaction; the audit row is the claim | 13, 15, 17 |
+| N59 the demo sample is validation and test users only | 14, 15, 16, 19 (reporting) |
+| N60 deduplication folds continuing scenario-2 activity; most missed days are in no alert | 14, 16, 19 (reporting) |
+| N61 the alert queue and the earlier daily top-k readouts rank different populations | 16, 19 (reporting) |
 
 ---
 
@@ -828,3 +836,168 @@ XGBoost's top factor is `http_leak_paste_count` on 15 of 19 scenario-1 days and
 - Chapter 16 repeats the comparison on test, per scenario, with seeds, before anything beyond "on
   validation" is claimed.
 
+## N54. Chapter 12 is PARTIALLY IMPLEMENTED until real runs exist  (from Chapter 12)
+
+RETIRED (chapter 12, runs verified and loaded, `/health` alerts block loaded; see
+`docs/audits/chapter_12_audit.md`).
+
+The alert code, the migration (`9f3b2c7d4e81`), the verifier and the tests
+pass on the synthetic chain and on a local PostgreSQL 16. No alert run exists
+on CERT r4.2 full. Chapter 12 becomes IMPLEMENTED when all of the following
+hold on the full profile, against the served gbdt model and the explain run
+the alert run names:
+
+- `alembic upgrade head` runs on the development machine's PostgreSQL;
+- a full alert batch (`python -m app.alerts.batch --profile full`) passes
+  `scripts/verify_chapter12.py --profile full --no-readout` with 0 FAIL;
+- the load (`python -m app.alerts.load --profile full`) reports STORED and
+  the verifier passes again with `--database-url`;
+- the validation readout is written once (`python -m app.alerts.evaluate
+  --profile full`) and the verifier passes with it;
+- `/health` shows `alerts` loaded and `database` reachable;
+- `docs/audits/chapter_12_audit.md` records the run ids, the policy hash, the
+  wall-clock and peak RSS of the batch and the load, the events read, and
+  explains every WARN.
+
+Progress (1 October 2026): run `20261001T062628Z-full-alerts` is verified,
+loaded and read, and `docs/audits/chapter_12_audit.md` is written. The first
+`/health` check showed `alerts` unavailable because the runtime looked for a
+`dev` run (C12-13); after the fix it shows the run loaded.
+
+CERT alert numbers are quoted from the audit only, with the run id and the
+policy hash. The synthetic numbers in the chapter document show the plumbing
+works and nothing else.
+
+## N55. The alert queue is ordered by the anomaly score  (from Chapter 12)
+
+`c12-alert-policy-v1` orders the analyst queue, and picks the daily top-k, by
+the served anomaly score. The CRI band is shown beside it as context and is
+the second trigger. This choice was made after N40 and N46 were known (on
+validation the anomaly score ranks above the default CRI), so it is
+validation-informed and recorded as such in `alert_meta.json`
+(`queue.validation_informed`, `queue.why`).
+
+- Every alert readout reports both views: the policy as built and the same
+  policy with `--ordering cri_score`, recomputed from the same risk run.
+  Neither is quoted without the other.
+- The dashboard (Chapter 14) sorts by the anomaly score by default and shows
+  the CRI and its band on every row. It does not re-sort by CRI silently, and
+  a CRI sort, if offered, is labelled as the other view.
+- Chapter 13's alert routes return both values and say which one ordered the
+  queue. They never recompute either (N34).
+- Chapter 16 decides on test whether the ordering holds, per scenario
+  (N15). If the policy changes after that, it gets a new version and a new
+  hash; the old runs stay as they are.
+
+## N56. An idle user-day never takes a top-k slot  (from Chapter 12)
+
+With `require_activity` on (the default), a user-day whose
+`total_event_count` is 0 cannot be in the daily top-k. It can still trigger
+through the CRI band. The rule was added while building on the synthetic
+chain, after the daily top-1 picked an idle weekend day; no CERT number
+informed it (C12-4).
+
+- Chapter 13's scoring and alert routes apply the same rule through
+  `app.alerts.policy`, not a copy of it.
+- Chapter 16 reports how many top-k slots the rule changed on the full
+  profile (`activity_rule_view` in the batch summary) before calling it
+  neutral. On run `20261001T062628Z-full-alerts` it changed the top-1 on 38
+  of 501 dates (76 user-days, two per changed date); see N61.
+- Turning it off (`--allow-inactive-top-k`) is an override: recorded in the
+  run's meta and a WARN in the verifier.
+
+## N57. Suppressed alerts are kept, and what they hide is reported  (from Chapter 12)
+
+Deduplication does not delete. A suppressed alert is stored with status
+`suppressed` and `duplicate_of` pointing at the open alert whose pattern it
+repeats (same user, inside the cooldown, signature covered, signature not
+empty). Suppressed alerts leave the queue but stay in Parquet and
+PostgreSQL (C12-9).
+
+- Every alert count quoted anywhere sits next to the suppressed count.
+- The validation readout lists malicious days that sit only in suppressed
+  alerts and insiders whose only alerts were suppressed. Guard
+  `c12-alert-guard-v1` WARNs on either, and the audit explains each one.
+- The dashboard (Chapter 14) lets an analyst open the suppressed alerts of an
+  open one. It never shows a suppressed alert as resolved or benign.
+- Chapter 16 reports alert precision and insiders caught with and without
+  deduplication.
+
+## N58. A load is one transaction; the audit row is the claim  (from Chapter 12)
+
+`python -m app.alerts.load` writes one alert run, its lineage rows and an
+`audit_logs` row with action `alert_run_loaded` in one PostgreSQL
+transaction. Either all of it is stored or none of it is. A failure prints
+NOT STORED and exits 3; a run already loaded is refused (exit 2). The load
+verifies the model artifacts by sha256 before writing (N21).
+
+- "This alert run is in the database" means the audit row exists. Code that
+  needs to know (Chapter 13's routes, `/health`, the verifier) checks that
+  row, not row counts.
+- Nothing writes alert rows outside this path. Chapter 13's write routes, if
+  any, and Chapter 17's workers (Celery, Kafka consumers) call
+  `app.alerts.persistence.persist` or the same transaction shape, and keep the
+  audit row in the same transaction.
+- A database outage stays visible (§36): a failed write is reported as not
+  stored, and `/health`'s `database` block says unavailable. No retry loop
+  hides it.
+- Chapter 15 repeats the outage tests (refused connection, error mid-load)
+  end to end.
+
+## N59. The demo sample is validation and test users only  (from Chapter 12)
+
+`c12-demo-sample-v1` (HCEA D-6) picks a 30-day window and up to 20 users from
+the served model's validation and test users, test first, label-free. The
+rule is recorded in `configurations` and reproduced by the verifier.
+
+- Screens, screenshots and walkthroughs in Chapters 14 and 19 use this sample
+  or alert-linked rows. No training user-day is shown as an example (N31).
+- The sample shows test users' alerts. Looking at them is fine; changing the
+  policy, a feature or the model because of what they show is test-informed
+  and is recorded as such, the same as any other look at test (N15).
+- A demo built on a different window or set of users is a new version of the
+  rule, with its own hash, not an edit of v1.
+
+## N60. Deduplication folds continuing scenario-2 activity; most missed days are in no alert  (from Chapter 12)
+
+On validation (run `20261001T062628Z-full-alerts`, one seed), 89 of 179
+scenario-2 malicious days fall in some alert, and 35 of those sit only in
+suppressed alerts. Every such day belongs to an insider who already has an
+open alert, so no insider is lost; the analyst loses the sign that the
+activity continued. Another 90 scenario-2 days are in no alert at all,
+because the queue takes one user-day per date. Guard `c12-alert-guard-v1`
+WARNs on the first effect, and the Chapter 12 audit explains it.
+
+- The dashboard (Chapter 14) shows, on every open alert, how many suppressed
+  alerts point at it and their date range, and lets the analyst open them
+  (N57). "One alert" for a scenario-2 insider can mean weeks of activity.
+- Chapter 16 reports per scenario: malicious days in an open alert, only in
+  suppressed alerts, and in no alert; with and without deduplication; under
+  both orderings (N55). Insiders caught is never quoted alone.
+- `usb_disconnect_count` leads 44 of 90 false-alarm validation alerts (49%)
+  under the policy, close to the 52% of benign top-1 days in Chapter 11. N52
+  holds at alert level.
+- 54 of 232 open alerts (23%) never rise above LOW on the CRI; they are in the
+  queue on the anomaly score alone. The band is shown on every row (N55).
+- Nothing in `c12-alert-policy-v1` changes because of these validation
+  numbers.
+
+## N61. The alert queue and the earlier daily top-k readouts rank different populations  (from Chapter 12)
+
+The daily top-k readouts of Chapters 8 to 10 apply no activity rule. The
+Chapter 12 queue applies `require_activity` (N56): on the full run, an idle
+user-day had the top anomaly score on 38 of 501 dates, and the queue gives
+that slot to the next active user-day. The queue also ranks validation and
+test users together, as an analyst would see them, so its population need not
+match the one a readout ranked.
+
+- A daily top-k figure from Chapters 8 to 10 is not an alert-queue figure.
+  When Chapter 16 or the report puts them side by side, it says which
+  population each one ranks and whether idle days could take a slot.
+- The ordering trade-off on validation (alert precision 0.211 with 114 open
+  alerts under the anomaly score; 0.190 with 153 under the CRI; scenario 2
+  caught 5 of 6 against 6 of 6) is quoted with both columns or not at all
+  (N55). Chapter 16 reads it on test.
+- That the anomaly score rates idle days so high on 38 dates is a property of
+  the served model, not established as a cause of anything. Chapter 16 may
+  look at it; it is not a reason to change the model now.

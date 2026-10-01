@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 
-from app.database.models import Configuration, MITREMapping, User  # noqa: F401  (registers ORM metadata)
+import app.database.models  # noqa: F401  (registers ORM metadata)
 
 
 @asynccontextmanager
@@ -43,11 +43,25 @@ async def lifespan(app: FastAPI):
     from app.explainability.runtime import ExplainRuntime
 
     app.state.explain = ExplainRuntime.load(app.state.scoring)
+
+    # Chapter 12: the newest alert run for the profile, if it was built for
+    # the model served now (N28). Alerts are stored in PostgreSQL by
+    # `python -m app.alerts.load`; /health probes the database separately.
+    from app.alerts.runtime import AlertRuntime
+
+    app.state.alerts = AlertRuntime.load(app.state.scoring)
     yield
     app.state.scoring = None
     app.state.cri = None
     app.state.mitre = None
     app.state.explain = None
+    app.state.alerts = None
+    # /health opens pooled PostgreSQL connections on this event loop; close
+    # them here so none outlives the loop (a test client starts a new loop
+    # per `with` block).
+    from app.database.session import engine
+
+    await engine.dispose()
 
 
 app = FastAPI(
@@ -64,6 +78,10 @@ async def health(request: Request) -> dict:
     cri = getattr(request.app.state, "cri", None)
     mitre = getattr(request.app.state, "mitre", None)
     explain = getattr(request.app.state, "explain", None)
+    alerts = getattr(request.app.state, "alerts", None)
+    from app.alerts.runtime import database_status
+
+    database = await database_status()
     # The top-level status keeps its Chapter 8 meaning (anomaly model loaded);
     # the CRI reports its own status until Chapter 13 adds the risk routes.
     return {
@@ -74,6 +92,8 @@ async def health(request: Request) -> dict:
         "mitre": mitre.status() if mitre is not None else {"status": "unavailable", "reason": "MITRE not started"},
         "explainability": (explain.status() if explain is not None
                            else {"status": "unavailable", "reason": "explainability not started"}),
+        "alerts": alerts.status() if alerts is not None else {"status": "unavailable", "reason": "alerts not started"},
+        "database": database,
     }
 
 

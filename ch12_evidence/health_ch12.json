@@ -1,0 +1,153 @@
+﻿{
+    "status":  "healthy",
+    "service":  "cira-backend",
+    "anomaly_model":  {
+                          "status":  "loaded",
+                          "source":  "decision_file",
+                          "decision_file":  "C:\\Users\\padme\\Desktop\\Padmesh \u0027s\\Side Hustles\\FRONT END DEVELOPING\\Projects\\Portfolio\\cira-insider-risk\\experiments\\chapter8_serving_decision.json",
+                          "decision_rule":  "c8-serving-rule-v1",
+                          "served":  {
+                                         "model_name":  "gbdt",
+                                         "registry_version":  "v0003",
+                                         "model_version":  "gbdt-chapter8-v1-077a3dae6cee",
+                                         "run_id":  "20260928T194711Z-full-user-s42",
+                                         "profile":  "full",
+                                         "trained_at":  "2026-09-28T19:47:55+00:00",
+                                         "split_mode":  "user",
+                                         "n_input_columns":  106,
+                                         "static_inputs":  [
+
+                                                           ],
+                                         "device":  "cpu",
+                                         "artifact_dir":  "C:\\Users\\padme\\Desktop\\Padmesh \u0027s\\Side Hustles\\FRONT END DEVELOPING\\Projects\\Portfolio\\cira-insider-risk\\models\\saved_models\\gbdt\\v0003"
+                                     },
+                          "shadow":  [
+                                         {
+                                             "model_name":  "tabnet",
+                                             "registry_version":  "v0005",
+                                             "model_version":  "tabnet-chapter7-v1-e03b3d0d3360",
+                                             "run_id":  "20260927T162456Z-full-user-s42",
+                                             "profile":  "full",
+                                             "trained_at":  "2026-09-27T16:34:14+00:00",
+                                             "split_mode":  "user",
+                                             "n_input_columns":  106,
+                                             "static_inputs":  [
+
+                                                               ],
+                                             "device":  "cpu",
+                                             "artifact_dir":  "C:\\Users\\padme\\Desktop\\Padmesh \u0027s\\Side Hustles\\FRONT END DEVELOPING\\Projects\\Portfolio\\cira-insider-risk\\models\\saved_models\\tabnet\\v0005"
+                                         }
+                                     ],
+                          "shadow_load_errors":  {
+
+                                                 },
+                          "shadow_score_failures":  0,
+                          "loaded_at":  "2026-10-01T09:18:42+00:00",
+                          "score_convention":  "anomaly_score = sigmoid(margin) in [0, 1], higher = more anomalous; a ranking score, not a probability (N20)"
+                      },
+    "cri":  {
+                "status":  "loaded",
+                "cri_version":  "chapter9-v1",
+                "config":  {
+                               "weights":  {
+                                               "anomaly":  0.6,
+                                               "historical_deviation":  0.15,
+                                               "peer_deviation":  0.1,
+                                               "user_context":  0.05,
+                                               "asset_criticality":  0.0,
+                                               "mitre_context":  0.1
+                                           },
+                               "severity_maxima":  {
+                                                       "LOW":  24,
+                                                       "MEDIUM":  49,
+                                                       "HIGH":  74,
+                                                       "CRITICAL":  100
+                                                   },
+                               "privileged_roles":  [
+                                                        "ITAdmin"
+                                                    ],
+                               "rarity_decades":  5.0,
+                               "disabled":  [
+
+                                            ],
+                               "variant":  "default"
+                           },
+                "config_hash":  "297bbbe7add7",
+                "config_overrides":  {
+
+                                     },
+                "calibration":  {
+                                    "calibration_id":  "20260929T095921Z-full-cri",
+                                    "definition_version":  "c9-rarity-v1",
+                                    "model_name":  "gbdt",
+                                    "model_version":  "gbdt-chapter8-v1-077a3dae6cee",
+                                    "registry_version":  "v0003",
+                                    "reference_part":  "validation",
+                                    "reference_rows":  89018,
+                                    "rarity_decades":  5.0,
+                                    "config_hash_at_calibration":  "297bbbe7add7"
+                                }
+            },
+    "mitre":  {
+                  "status":  "loaded",
+                  "mitre_version":  "chapter10-v1",
+                  "ruleset_version":  "c10-rules-v1",
+                  "ruleset_hash":  "d58ec9c75bc6",
+                  "rules":  [
+                                "R01_removable_media_copy",
+                                "R02_leak_site_access",
+                                "R03_cloud_storage_access",
+                                "R04_attack_tool_site_access"
+                            ],
+                  "table":  {
+                                "attack_version":  "19.2",
+                                "bundle_sha256":  "dc1639caa5501d720e280cf1cbd8fbe009884a0c9b3e6e9ed9d0c25166c3d8f4",
+                                "bundle_modified":  "2026-08-05T21:33:58.496Z",
+                                "table_sha256":  "f33bc9d44e57e7e1e87b34e2fe3d670108239e14f503de1cc454a6033270c154",
+                                "techniques":  697,
+                                "path":  "C:\\Users\\padme\\Desktop\\Padmesh \u0027s\\Side Hustles\\FRONT END DEVELOPING\\Projects\\Portfolio\\cira-insider-risk\\backend\\app\\mitre\\data\\enterprise_attack_v19.2.json"
+                            },
+                  "reference":  {
+                                    "reference_id":  "20260929T184428Z-full-mitre",
+                                    "definition_version":  "c10-mitre-rarity-v1",
+                                    "ruleset_version":  "c10-rules-v1",
+                                    "ruleset_hash":  "d58ec9c75bc6",
+                                    "attack_version":  "19.2",
+                                    "reference_part":  "validation",
+                                    "reference_rows":  89018,
+                                    "rarity_decades":  5.0,
+                                    "features_fingerprint":  "4f09afb11a8f"
+                                }
+              },
+    "explainability":  {
+                           "status":  "loaded",
+                           "explain_version":  "chapter11-v1",
+                           "method":  "treeshap",
+                           "model_name":  "gbdt",
+                           "model_version":  "gbdt-chapter8-v1-077a3dae6cee",
+                           "registry_version":  "v0003",
+                           "role":  "served",
+                           "engine":  "xgboost Booster.predict(pred_contribs=True)",
+                           "algorithm":  "path-dependent TreeSHAP (exact)",
+                           "iteration_range":  [
+                                                   0,
+                                                   591
+                                               ],
+                           "best_iteration":  590,
+                           "n_inputs":  106,
+                           "additivity_tolerance":  0.001,
+                           "kernelshap":  "batch only, bounded rows (HCEA D-5); python -m app.explainability.batch",
+                           "shadow":  "never explained for analysts (N32)"
+                       },
+    "alerts":  {
+                   "status":  "unavailable",
+                   "reason":  "no Chapter 12 alert run for profile=\u0027dev\u0027 under D:\\CIRA_dataset\\datasets\\processed\\alerts\\chapter12; run `python -m app.alerts.batch --profile dev`",
+                   "policy_version":  "c12-alert-policy-v1",
+                   "default_policy_hash":  "21cd9391fd48"
+               },
+    "database":  {
+                     "status":  "reachable",
+                     "alembic_revision":  "9f3b2c7d4e81",
+                     "alert_runs_loaded":  1
+                 }
+}

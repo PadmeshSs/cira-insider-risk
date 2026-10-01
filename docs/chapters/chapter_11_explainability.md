@@ -345,7 +345,7 @@ from a toy model that show the plumbing works, not results.
 | C11-2 | KernelSHAP background for XGBoost: 50 real training user-days from a user-stratified pool, not `shap.kmeans` (nulls); kmeans kept for TabNet | Applied |
 | C11-3 | KernelSHAP nsamples `2 * M + 2048` instead of 100; values at or below M refused | Applied |
 | C11-4 | TreeSHAP computed by XGBoost's `pred_contribs` with the early-stopping iteration range; `shap.TreeExplainer` is the verifier's cross-check | Applied |
-| C11-5 | Explanations persisted to Parquet and `reasons.jsonl`; `AlertReason` rows are Chapter 12's job (bounded, D-6) | Deferred |
+| C11-5 | Explanations persisted to Parquet and `reasons.jsonl`; `AlertReason` rows are Chapter 12's job (bounded, D-6) | Done in Chapter 12 (`alert_reasons`, every member day) |
 | C11-6 | KernelSHAP runs on a label-free bounded set (`c11-selection-v1`) because alerts do not exist yet | Applied |
 | C11-7 | Modules beyond the Bible's three (see "What was built") | Applied |
 | C11-8 | `/health` gains an `explainability` block; top-level status keeps its Chapter 8 meaning | Applied |

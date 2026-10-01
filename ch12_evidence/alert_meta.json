@@ -1,0 +1,244 @@
+{
+  "chapter": 12,
+  "alerts_version": "chapter12-v1",
+  "alert_run_id": "20261001T062628Z-full-alerts",
+  "profile": "full",
+  "reportable": true,
+  "rows_option": "evaluation",
+  "policy": {
+    "version": "c12-alert-policy-v1",
+    "band_severities": [
+      "HIGH",
+      "CRITICAL"
+    ],
+    "top_k_per_day": 1,
+    "ordering": "anomaly_score",
+    "correlation_gap_days": 3,
+    "max_span_days": 14,
+    "cooldown_days": 7,
+    "tie_break_seed": 42,
+    "require_activity": true
+  },
+  "policy_hash": "21cd9391fd48",
+  "policy_overrides": {},
+  "queue": {
+    "ordering": "anomaly_score",
+    "context": "CRI score and severity band shown next to the queue score (N40)",
+    "validation_informed": true,
+    "why": "highest validation PR-AUC of the three orderings (N40, N46); no ordering dominates on insiders caught"
+  },
+  "demo_sample": {
+    "rule": "c12-demo-sample-v1",
+    "window_days": 30,
+    "max_users": 20,
+    "max_alerting_users": 10,
+    "seed": 42,
+    "eligible_splits": [
+      "test",
+      "validation"
+    ],
+    "window": {
+      "start": "2011-04-19",
+      "end": "2011-05-18"
+    },
+    "users": [
+      "rnp0211",
+      "ilj0526",
+      "tsr0676",
+      "sbn0866",
+      "sbh0537",
+      "jdc0030",
+      "irm0931",
+      "dal0673",
+      "hph0075",
+      "ssg0250",
+      "mmg0943",
+      "hsp0290",
+      "cmb0912",
+      "ajh0175",
+      "bwh0813",
+      "ijw0851",
+      "jom0750",
+      "jzd0888",
+      "jkm0303",
+      "jrl0574"
+    ],
+    "alerting_users": [
+      "rnp0211",
+      "ilj0526",
+      "tsr0676",
+      "sbn0866",
+      "sbh0537",
+      "jdc0030",
+      "irm0931",
+      "dal0673",
+      "hph0075"
+    ],
+    "rows": 561
+  },
+  "served": {
+    "model_name": "gbdt",
+    "registry_version": "v0003",
+    "model_version": "gbdt-chapter8-v1-077a3dae6cee",
+    "run_id": "20260928T194711Z-full-user-s42",
+    "profile": "full",
+    "trained_at": "2026-09-28T19:47:55+00:00",
+    "split_mode": "user",
+    "n_input_columns": 106,
+    "static_inputs": [],
+    "device": "cpu",
+    "artifact_dir": "C:\\Users\\padme\\Desktop\\Padmesh 's\\Side Hustles\\FRONT END DEVELOPING\\Projects\\Portfolio\\cira-insider-risk\\models\\saved_models\\gbdt\\v0003"
+  },
+  "serving_source": "decision_file",
+  "explain_run": {
+    "explain_run_id": "20260930T190519Z-full-explain",
+    "method": "treeshap",
+    "rows_option": "all"
+  },
+  "source_batch": {
+    "batch_run_id": "20260928T194858Z-full-batch",
+    "path": "D:\\CIRA_dataset\\datasets\\processed\\scores\\chapter8\\20260928T194858Z-full-batch"
+  },
+  "risk_run": {
+    "cri_run_id": "20260929T184445Z-full-cri-default-mitre",
+    "formula_hash": "3bea2eac4884",
+    "config_hash": "297bbbe7add7",
+    "calibration_id": "20260929T095921Z-full-cri",
+    "with_mitre": true
+  },
+  "mitre": {
+    "mitre_run_id": "20260929T184439Z-full-mitre",
+    "ruleset_version": "c10-rules-v1",
+    "ruleset_hash": "d58ec9c75bc6",
+    "attack_version": "19.2",
+    "reference_id": "20260929T184428Z-full-mitre"
+  },
+  "mitre_unavailable_reason": null,
+  "unavailable_components": {
+    "asset_criticality": "CERT r4.2 has no asset inventory or criticality source (N9); no user-day-to-asset criticality was supplied, so the component is excluded, never invented"
+  },
+  "features": {
+    "path": "D:\\CIRA_dataset\\datasets\\processed\\features\\user_day_full.parquet",
+    "fingerprint": "4f09afb11a8f"
+  },
+  "summary": {
+    "candidate_rows": 173534,
+    "candidate_rows_by_model_split": {
+      "test": 84516,
+      "validation": 89018
+    },
+    "triggered_user_days": 519,
+    "triggered_by": {
+      "band": 41,
+      "top_k": 501,
+      "both": 23
+    },
+    "triggered_with_no_recorded_activity": 0,
+    "alerts": 265,
+    "open_alerts": 232,
+    "suppressed_alerts": 33,
+    "member_days": 519,
+    "member_days_in_suppressed_alerts": 89,
+    "open_alerts_by_model_split": {
+      "test": 118,
+      "validation": 114
+    },
+    "open_alerts_by_max_severity": {
+      "LOW": 54,
+      "MEDIUM": 156,
+      "HIGH": 22,
+      "CRITICAL": 0
+    },
+    "open_alert_days": {
+      "1": 186,
+      "2": 12,
+      "3": 4,
+      "4": 9,
+      "5": 1,
+      "6": 2,
+      "7": 5,
+      "8": 3,
+      "9": 4,
+      "10": 6
+    },
+    "daily_volume": {
+      "open_alerts_by_peak_date": {
+        "days": 501,
+        "total": 232,
+        "mean": 0.4630738522954092,
+        "median": 0.0,
+        "p95": 1.0,
+        "max": 2,
+        "days_with_none": 271
+      },
+      "triggered_by_band": {
+        "days": 501,
+        "total": 41,
+        "mean": 0.08183632734530938,
+        "median": 0.0,
+        "p95": 1.0,
+        "max": 2,
+        "days_with_none": 462
+      },
+      "triggered_by_top_k": {
+        "days": 501,
+        "total": 501,
+        "mean": 1.0,
+        "median": 1.0,
+        "p95": 1.0,
+        "max": 1,
+        "days_with_none": 0
+      }
+    },
+    "other_ordering_view": {
+      "ordering": "cri_score",
+      "triggered_user_days": 503,
+      "top_k_user_days": 501,
+      "top_k_same_user_day": 260,
+      "top_k_only_under_other_ordering": 241,
+      "note": "label-free: what the other ordering would have put in the daily top-k (N40); the readout reads both"
+    },
+    "activity_rule_view": {
+      "require_activity": false,
+      "top_k_user_days_changed": 76,
+      "note": "label-free: how many daily top-k slots the require_activity rule changes (N56)"
+    },
+    "open_alert_top_factor": {
+      "usb_disconnect_count": 68,
+      "hist_z_usb_connect_count": 58,
+      "peer_dev_http_request_count": 37,
+      "http_leak_paste_count": 13,
+      "hist_abs_z_off_hours_login_ratio": 10,
+      "hist_z_emails_sent": 9,
+      "usb_last_hour": 8,
+      "peer_abs_dev_login_count": 8,
+      "hist_abs_z_emails_sent": 7,
+      "http_job_search_count": 6
+    },
+    "open_alerts_led_by_usb_disconnect_count": 68,
+    "open_alerts_with_no_raising_factor": 0,
+    "explanation_status": {
+      "complete": 519
+    },
+    "reason_rows_by_section": {
+      "model": 1951,
+      "cri": 1415,
+      "model_lowering": 863,
+      "mitre": 481
+    },
+    "demo_rows": 561
+  },
+  "shadow": "never read: shadow scores feed no alert (N32)",
+  "note": "rows tagged model_split=train are in-sample (N31); nothing here is a detection number",
+  "outputs": {
+    "alerts.parquet": "D:\\CIRA_dataset\\datasets\\processed\\alerts\\chapter12\\20261001T062628Z-full-alerts\\alerts.parquet",
+    "alert_members.parquet": "D:\\CIRA_dataset\\datasets\\processed\\alerts\\chapter12\\20261001T062628Z-full-alerts\\alert_members.parquet",
+    "alert_reasons.parquet": "D:\\CIRA_dataset\\datasets\\processed\\alerts\\chapter12\\20261001T062628Z-full-alerts\\alert_reasons.parquet",
+    "explanations.jsonl": "D:\\CIRA_dataset\\datasets\\processed\\alerts\\chapter12\\20261001T062628Z-full-alerts\\explanations.jsonl",
+    "demo_sample.parquet": "D:\\CIRA_dataset\\datasets\\processed\\alerts\\chapter12\\20261001T062628Z-full-alerts\\demo_sample.parquet"
+  },
+  "correlate_seconds": 0.62,
+  "explain_seconds": 96.26,
+  "wall_seconds": 99.91,
+  "peak_rss_mb": 1574.2
+}

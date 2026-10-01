@@ -13,13 +13,14 @@ Lineage (§37): ``mitre_run_id`` -> the enrichment run's meta ->
 ``ruleset_version``/``ruleset_hash``, ``attack_version`` and
 ``reference_id``. Rows are persisted in Chapter 12 for alert-linked
 user-days and the demo sample only (HCEA D-6); the full set stays in
-Parquet. The link to an alert (``alert_id``) is added with the Alert entity
-in Chapter 12. ``user_id`` is a monitored subject's id (a CERT user id),
-not a row of ``users``.
+Parquet. ``alert_id`` (Chapter 12) links a mapping of an alert member day
+to the alert that first covered it; demo-sample rows have none.
+``user_id`` is a monitored subject's id (a CERT user id), not a row of
+``users``.
 """
 from datetime import date, datetime
 
-from sqlalchemy import JSON, CheckConstraint, Date, DateTime, Float, Index, String, Text, func
+from sqlalchemy import JSON, CheckConstraint, Date, DateTime, Float, ForeignKey, Index, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -53,6 +54,7 @@ class MITREMapping(Base):
     attack_version: Mapped[str] = mapped_column(String(16), nullable=False)
     reference_id: Mapped[str] = mapped_column(String(64), nullable=False)
     mitre_run_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    alert_id: Mapped[int | None] = mapped_column(ForeignKey("alerts.id"), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
@@ -68,4 +70,5 @@ class MITREMapping(Base):
         CheckConstraint("mitre_context IS NULL OR (mitre_context >= 0 AND mitre_context <= 1)", name="context_range"),
         Index("ix_mitre_mappings_user_day", "user_id", "activity_date"),
         Index("ix_mitre_mappings_technique_id", "technique_id"),
+        Index("ix_mitre_mappings_alert_id", "alert_id"),
     )

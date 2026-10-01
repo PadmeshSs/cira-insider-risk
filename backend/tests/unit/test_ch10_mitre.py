@@ -331,17 +331,29 @@ def _module(path: Path):
     return mod
 
 
-def test_migration_is_the_head_and_matches_the_orm():
+def test_migration_is_in_the_chain_and_matches_the_orm():
+    """Chapter 10's migration stays in the one linear history (later chapters add to it) and matches the ORM.
+
+    ``mitre_mappings.alert_id`` is added by the Chapter 12 migration, so it is
+    the one difference allowed right after this revision alone.
+    """
     mig = _module(next(VERSIONS.glob(f"{CH10_REVISION}_*.py")))
     assert mig.revision == CH10_REVISION and mig.down_revision == "50ba9f46d2ed"
     mods = [_module(p) for p in VERSIONS.glob("*.py")]
-    assert {m.revision for m in mods} - {m.down_revision for m in mods} == {CH10_REVISION}
+    heads = {m.revision for m in mods} - {m.down_revision for m in mods}
+    assert len(heads) == 1
+    parent = {m.revision: m.down_revision for m in mods}
+    chain, rev = [], next(iter(heads))
+    while rev:
+        chain.append(rev)
+        rev = parent.get(rev)
+    assert CH10_REVISION in chain
     engine = sa.create_engine("sqlite://")
     with engine.begin() as conn:
         with Operations.context(MigrationContext.configure(conn)):
             mig.upgrade()
         diff = compare_metadata(MigrationContext.configure(conn), Base.metadata)
-    assert [d for d in diff if "mitre_mappings" in repr(d)] == []
+    assert [d for d in diff if "mitre_mappings" in repr(d) and "alert_id" not in repr(d)] == []
     with engine.begin() as conn:
         with Operations.context(MigrationContext.configure(conn)):
             mig.downgrade()

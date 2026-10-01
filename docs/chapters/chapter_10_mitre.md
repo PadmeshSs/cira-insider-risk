@@ -307,7 +307,7 @@ MITRE-enabled run: 31 PASS, 0 WARN, 0 FAIL, on both.
 | C10-3 | The Bible's example (archive then external transfer → T1560 + T1537) not implemented: archiving is not recorded and T1537 needs cloud telemetry | Recorded as not mapped |
 | C10-4 | Modules beyond the Bible's three (see "What was built") | Applied, explained above |
 | C10-5 | MITRE joins the CRI by flag; Chapter 9 runs stay unchanged; `formula_hash` distinguishes the formulas | Applied |
-| C10-6 | `MITREMapping` rows persisted in Chapter 12 (bounded, D-6); the `Alert` foreign key comes with that entity | Deferred |
+| C10-6 | `MITREMapping` rows persisted in Chapter 12 (bounded, D-6); the `Alert` foreign key comes with that entity | Done in Chapter 12 (`mitre_mappings.alert_id`, migration `9f3b2c7d4e81`) |
 | C10-7 | The MITRE reference is fitted on the shared split's validation users, not a model batch (N42) | Applied |
 | C10-8 | `/health` gains a `mitre` block; top-level status keeps its Chapter 8 meaning | Applied |
 | C10-9 | Chapter 9's migration test now checks that its revision is on the single head's chain, not that it is the head | Applied |

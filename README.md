@@ -25,17 +25,18 @@ passes its checks.
 | 9 | Contextual Risk Intelligence (CRI), Asset entity | IMPLEMENTED; calibrated for gbdt v0003 |
 | 10 | MITRE ATT&CK enrichment (19.2), MITREMapping entity, CRI `mitre_context` | IMPLEMENTED; reference 20260929T184428Z-full-mitre, ATT&CK 19.2 |
 | 11 | Explainability: TreeSHAP on the served XGBoost, KernelSHAP corroboration, TabNet mask view, analyst reasons | IMPLEMENTED; explain run 20260930T190519Z-full-explain |
-| 12-16 | Alerts, API, dashboard, evaluation | PLANNED |
+| 12 | Alert correlation, deduplication and persistence; lineage entities | IMPLEMENTED; alert run 20261001T062628Z-full-alerts, policy 21cd9391fd48 |
+| 13-16 | API, dashboard, end-to-end validation, evaluation | PLANNED |
 | 17-18 | Kafka, Redis, Celery, SSE, OpenSearch, observability, K8s | NOT IMPLEMENTED (production extensions) |
 
 See `docs/audits/chapter_1_5_audit.md`, `docs/audits/chapter_6_audit.md` and `docs/audits/chapter_7_audit.md`, `docs/audits/chapter_8_audit.md`, `docs/audits/chapter_9_audit.md` and
-`docs/audits/chapter_10_audit.md` and `docs/audits/chapter_11_audit.md` for the chapter reviews, and
+`docs/audits/chapter_10_audit.md`, `docs/audits/chapter_11_audit.md` and `docs/audits/chapter_12_audit.md` for the chapter reviews, and
 `docs/CARRY_FORWARD.md` for the rules every later chapter must follow.
 Chapter 6 is described in `docs/chapters/chapter_6_baselines.md`, Chapter 7
 in `docs/chapters/chapter_7_tabnet.md`, Chapter 8 in
 `docs/chapters/chapter_8_scoring.md`, Chapter 9 in `docs/chapters/chapter_9_cri.md`,
 Chapter 10 in `docs/chapters/chapter_10_mitre.md`, Chapter 11 in
-`docs/chapters/chapter_11_explainability.md`.
+`docs/chapters/chapter_11_explainability.md`, Chapter 12 in `docs/chapters/chapter_12_alerts.md`.
 
 ## Running Chapter 5
 
@@ -202,6 +203,33 @@ Runs go to `<CERT_PROCESSED_DIR>/explanations/chapter11/<run id>/`; the written
 explanations for the bounded set are in `reasons.jsonl`. `/health` gains an
 `explainability` block. Design, the deviations from D-5 and what makes the
 chapter IMPLEMENTED: `docs/chapters/chapter_11_explainability.md`.
+
+## Running Chapter 12
+
+Chapter 12 turns triggered user-days into correlated alerts. A user-day
+triggers when its CRI band is HIGH or CRITICAL or it has the day's highest
+served anomaly score. Nearby triggered days of one user become one alert, and
+an alert that repeats an open one inside the cooldown is kept as suppressed.
+Every member day carries the Chapter 11 explanation. The load writes the alert
+run, its lineage rows and a bounded demo sample into PostgreSQL in one
+transaction (HCEA D-6). From `backend/`, after Chapter 11, with PostgreSQL up:
+
+```bash
+export CERT_PROCESSED_DIR=/path/to/datasets/processed   # read from the shell, not from .env
+alembic upgrade head
+python -m app.alerts.batch --profile full
+python ../scripts/verify_chapter12.py --profile full --no-readout
+python -m app.alerts.load --profile full                # DATABASE_URL from .env
+python ../scripts/verify_chapter12.py --profile full --no-readout --database-url "$DATABASE_URL"
+python -m app.alerts.evaluate --profile full            # validation readout, once (reads labels)
+python ../scripts/verify_chapter12.py --profile full --database-url "$DATABASE_URL"
+```
+
+PowerShell uses `$env:CERT_PROCESSED_DIR = "..."` and `$env:DATABASE_URL`; the
+chapter document has the full PowerShell version. Runs go to
+`<CERT_PROCESSED_DIR>/alerts/chapter12/<run id>/`. `/health` gains `alerts` and
+`database` blocks. Design, deviations and what makes the chapter IMPLEMENTED:
+`docs/chapters/chapter_12_alerts.md`.
 
 ## Tests
 
