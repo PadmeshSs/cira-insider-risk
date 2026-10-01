@@ -3,6 +3,7 @@ sqlalchemy[asyncio]
 asyncpg
 alembic
 pydantic-settings
+pyjwt
 
 pandas
 numpy
@@ -17,6 +18,7 @@ stix2
 pytest
 pytest-asyncio
 httpx
+aiosqlite
 testcontainers
 factory_boy
 ruff

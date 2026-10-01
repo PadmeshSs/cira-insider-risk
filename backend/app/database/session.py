@@ -9,10 +9,15 @@ from sqlalchemy.ext.asyncio import (
 from app.core.config import settings
 
 
+# asyncpg waits 60 s for a connection by default; an API request should
+# fail fast and say the database is unavailable instead (Architecture §36).
+_CONNECT_ARGS = {"timeout": 5} if settings.database_url.startswith("postgresql+asyncpg") else {}
+
 engine = create_async_engine(
     settings.database_url,
     echo=settings.environment == "development",
     pool_pre_ping=True,
+    connect_args=_CONNECT_ARGS,
 )
 
 AsyncSessionLocal = async_sessionmaker(

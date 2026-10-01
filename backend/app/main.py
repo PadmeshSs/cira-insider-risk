@@ -11,8 +11,8 @@ async def lifespan(app: FastAPI):
 
     Never per request. If it cannot be loaded the API still starts, the
     service is marked unavailable with the reason, and no score is ever
-    produced (Architecture §36). Chapter 13 adds the scoring routes; they
-    will read ``app.state.scoring``.
+    produced (Architecture §36). The Chapter 13 routes read these runtimes
+    through ``app.api.deps.get_runtimes``.
     """
     from app.core.runtime import apply_thread_caps
 
@@ -66,36 +66,41 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="CIRA Insider Risk Analytics",
-    version="0.1.0",
+    version="0.13.0",
     lifespan=lifespan,
+    description=("Context-aware insider risk analytics on CERT r4.2. Anomaly scores are ranking scores, not "
+                 "probabilities; the CRI is a separate 0-100 value (N20, N34). Every list is paginated with a "
+                 "server-side cap (HCEA §13)."),
 )
 
+from app.api import errors as api_errors  # noqa: E402
+from app.api.deps import get_app_settings, get_engine, get_runtimes  # noqa: E402
+from app.api.v1 import api_router  # noqa: E402
 
-@app.get("/health")
+api_errors.install(app)
+
+
+def _cors_origins() -> list[str]:
+    from app.core.config import settings
+
+    return [o.strip() for o in (settings.cors_origins or "").split(",") if o.strip()]
+
+
+if _cors_origins():
+    from fastapi.middleware.cors import CORSMiddleware
+
+    app.add_middleware(CORSMiddleware, allow_origins=_cors_origins(), allow_credentials=False,
+                       allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"])
+
+app.include_router(api_router)
+
+
+@app.get("/health", include_in_schema=False)
 async def health(request: Request) -> dict:
-    service = getattr(request.app.state, "scoring", None)
-    model = service.status() if service is not None else {"status": "unavailable", "reason": "scoring service not started"}
-    cri = getattr(request.app.state, "cri", None)
-    mitre = getattr(request.app.state, "mitre", None)
-    explain = getattr(request.app.state, "explain", None)
-    alerts = getattr(request.app.state, "alerts", None)
-    from app.alerts.runtime import database_status
+    """Same body as /api/v1/health; kept at the root for Docker healthchecks and Chapters 8-12."""
+    from app.services.health import health as build
 
-    database = await database_status()
-    # The top-level status keeps its Chapter 8 meaning (anomaly model loaded);
-    # the CRI reports its own status until Chapter 13 adds the risk routes.
-    return {
-        "status": "healthy" if model["status"] == "loaded" else "degraded",
-        "service": "cira-backend",
-        "anomaly_model": model,
-        "cri": cri.status() if cri is not None else {"status": "unavailable", "reason": "CRI not started"},
-        "mitre": mitre.status() if mitre is not None else {"status": "unavailable", "reason": "MITRE not started"},
-        "explainability": (explain.status() if explain is not None
-                           else {"status": "unavailable", "reason": "explainability not started"}),
-        "alerts": alerts.status() if alerts is not None else {"status": "unavailable", "reason": "alerts not started"},
-        "database": database,
-    }
-
-
-# Future routers will be registered here.
-# Chapter 13 will add the full API integration.
+    overrides = request.app.dependency_overrides
+    engine = overrides.get(get_engine, get_engine)()
+    settings = overrides.get(get_app_settings, get_app_settings)()
+    return await build(get_runtimes(request), engine=engine, secret=settings.secret_key)

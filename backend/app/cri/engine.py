@@ -273,13 +273,24 @@ class CRIEngine:
         available = available if available is not None else {c for c in COMPONENTS if c not in ("asset_criticality", "mitre_context")}
         return self.config.effective_weights(available)
 
-    # --- one user-day (Chapter 13 will call this) ---------------------------
+    # --- one user-day (Chapter 13) -------------------------------------------
     def compute_event(self, score: Mapping[str, Any], feature_vector: Mapping[str, Any], role: str | None,
                       *, asset_criticality: float | None = None, mitre_context: float | None = None) -> dict:
         """One scored user-day -> one risk row, as a dict.
 
         ``score`` is a ScoreResult.to_dict() (or the same keys); the feature
         vector carries the raw Chapter 5 hist_z_* / peer_dev_* values.
+        """
+        return self.compute_event_detail(score, feature_vector, role, asset_criticality=asset_criticality,
+                                         mitre_context=mitre_context)["risk"]
+
+    def compute_event_detail(self, score: Mapping[str, Any], feature_vector: Mapping[str, Any], role: str | None,
+                             *, asset_criticality: float | None = None, mitre_context: float | None = None) -> dict:
+        """``compute_event`` plus the engine's own reasons for unavailable components (N35).
+
+        Returns ``{"risk": row, "unavailable_components": {component: reason}}``.
+        The reasons are the ones a batch risk run writes into its meta, so an
+        on-demand explanation lists the same gaps as an alert's.
         """
         from .context import build_context
 
@@ -301,4 +312,6 @@ class CRIEngine:
             ctx["asset_criticality"] = float(asset_criticality)
         if mitre_context is not None:
             ctx["mitre_context"] = float(mitre_context)
-        return self.compute(scores, ctx).iloc[0].to_dict()
+        parts = self.components(scores, ctx)
+        row = self.assemble(scores, ctx, parts, self.config).iloc[0].to_dict()
+        return {"risk": row, "unavailable_components": dict(parts["unavailable"])}

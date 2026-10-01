@@ -26,17 +26,19 @@ passes its checks.
 | 10 | MITRE ATT&CK enrichment (19.2), MITREMapping entity, CRI `mitre_context` | IMPLEMENTED; reference 20260929T184428Z-full-mitre, ATT&CK 19.2 |
 | 11 | Explainability: TreeSHAP on the served XGBoost, KernelSHAP corroboration, TabNet mask view, analyst reasons | IMPLEMENTED; explain run 20260930T190519Z-full-explain |
 | 12 | Alert correlation, deduplication and persistence; lineage entities | IMPLEMENTED; alert run 20261001T062628Z-full-alerts, policy 21cd9391fd48 |
-| 13-16 | API, dashboard, end-to-end validation, evaluation | PLANNED |
+| 13 | FastAPI integration: twelve route groups, analyst login, on-demand scoring, `/health` readiness | IMPLEMENTED; serves alert run 20261001T062628Z-full-alerts, verifier 28 PASS / 0 FAIL |
+| 14-16 | Dashboard, end-to-end validation, evaluation | PLANNED |
 | 17-18 | Kafka, Redis, Celery, SSE, OpenSearch, observability, K8s | NOT IMPLEMENTED (production extensions) |
 
 See `docs/audits/chapter_1_5_audit.md`, `docs/audits/chapter_6_audit.md` and `docs/audits/chapter_7_audit.md`, `docs/audits/chapter_8_audit.md`, `docs/audits/chapter_9_audit.md` and
-`docs/audits/chapter_10_audit.md`, `docs/audits/chapter_11_audit.md` and `docs/audits/chapter_12_audit.md` for the chapter reviews, and
+`docs/audits/chapter_10_audit.md`, `docs/audits/chapter_11_audit.md`, `docs/audits/chapter_12_audit.md` and `docs/audits/chapter_13_audit.md` for the chapter reviews, and
 `docs/CARRY_FORWARD.md` for the rules every later chapter must follow.
 Chapter 6 is described in `docs/chapters/chapter_6_baselines.md`, Chapter 7
 in `docs/chapters/chapter_7_tabnet.md`, Chapter 8 in
 `docs/chapters/chapter_8_scoring.md`, Chapter 9 in `docs/chapters/chapter_9_cri.md`,
 Chapter 10 in `docs/chapters/chapter_10_mitre.md`, Chapter 11 in
-`docs/chapters/chapter_11_explainability.md`, Chapter 12 in `docs/chapters/chapter_12_alerts.md`.
+`docs/chapters/chapter_11_explainability.md`, Chapter 12 in `docs/chapters/chapter_12_alerts.md`,
+Chapter 13 in `docs/chapters/chapter_13_api.md`.
 
 ## Running Chapter 5
 
@@ -230,6 +232,24 @@ chapter document has the full PowerShell version. Runs go to
 `<CERT_PROCESSED_DIR>/alerts/chapter12/<run id>/`. `/health` gains `alerts` and
 `database` blocks. Design, deviations and what makes the chapter IMPLEMENTED:
 `docs/chapters/chapter_12_alerts.md`.
+
+## Running Chapter 13
+
+The API serves the loaded alert run of the model served now, from PostgreSQL,
+to signed-in analysts. From `backend/`, after the Chapter 12 load:
+
+```bash
+python -c "import secrets; print('SECRET_KEY=' + secrets.token_urlsafe(48))" >> ../.env
+pip install -r requirements.txt                      # adds pyjwt and aiosqlite
+python -m app.services.accounts create --username alice --email alice@example.org
+uvicorn app.main:app --port 8000                     # docs at http://localhost:8000/docs
+CIRA_ANALYST_PASSWORD='...' python ../scripts/verify_chapter13.py --username alice --database-url "$DATABASE_URL"
+```
+
+Every route is under `/api/v1`; only `auth/token` and `health` are public.
+Lists are capped at 200 rows per page, and nothing computed over HTTP is
+stored. `/health` gains `auth` and `routes` blocks. Design, routes, failure
+modes and what makes the chapter IMPLEMENTED: `docs/chapters/chapter_13_api.md`.
 
 ## Tests
 

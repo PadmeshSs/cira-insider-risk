@@ -32,6 +32,16 @@ class Settings(BaseSettings):
     cira_device: str = "auto"
     cira_seed: int = 42
 
+    # Chapter 13: analyst authentication and browser access.
+    # SECRET_KEY signs the access tokens. Unset, shorter than 32 characters
+    # or still the .env.example placeholder means no token is issued and the
+    # API answers 503 on /api/v1/auth/token (app.core.security.auth_problem).
+    secret_key: str | None = None
+    access_token_minutes: int = 60
+    # Comma-separated origins allowed to call the API from a browser
+    # (the Vite dev server in Chapter 14).
+    cors_origins: str = "http://localhost:5173"
+
     model_config = SettingsConfigDict(
         # Resolved independently of the current working directory, so the
         # same .env is found from the repo root, backend/, or a test runner.

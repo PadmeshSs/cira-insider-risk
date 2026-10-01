@@ -139,6 +139,27 @@ def daily_top_k(dates: pd.Series, scores: np.ndarray, k: int, *, seed: int) -> n
 ACTIVITY_COLUMN = "total_event_count"
 
 
+def band_trigger(severity, policy: AlertPolicy) -> np.ndarray:
+    """True where the CRI severity is one of the policy's trigger bands.
+
+    One rule for the batch and the API (N56): ``triggers`` and the Chapter 13
+    scoring route both call this.
+    """
+    return pd.Series(severity, dtype="object").astype(str).isin(policy.band_severities).to_numpy()
+
+
+def top_k_eligible(activity, policy: AlertPolicy, n: int) -> np.ndarray:
+    """Which rows may take a daily top-k slot (N56): all, or only rows with recorded activity."""
+    if not policy.require_activity:
+        return np.ones(n, dtype=bool)
+    if activity is None:
+        raise AlertPolicyError(f"the policy requires activity: pass {ACTIVITY_COLUMN} aligned to the rows")
+    a = np.asarray(activity, dtype="float64")
+    if a.shape != (n,):
+        raise AlertPolicyError(f"{ACTIVITY_COLUMN} has {a.shape} values for {n} rows")
+    return np.nan_to_num(a, nan=0.0) > 0
+
+
 def triggers(risk: pd.DataFrame, policy: AlertPolicy, activity: np.ndarray | None = None) -> pd.DataFrame:
     """``risk`` (user_id, date, severity, anomaly_score, cri_score) -> by_band, by_top_k, triggered.
 
@@ -150,13 +171,8 @@ def triggers(risk: pd.DataFrame, policy: AlertPolicy, activity: np.ndarray | Non
     missing = [c for c in need if c not in risk.columns]
     if missing:
         raise AlertPolicyError(f"triggers need {missing}")
-    by_band = risk["severity"].astype(str).isin(policy.band_severities).to_numpy()
-    eligible = np.ones(len(risk), dtype=bool)
-    if policy.require_activity:
-        if activity is None:
-            raise AlertPolicyError(f"the policy requires activity: pass {ACTIVITY_COLUMN} aligned to the rows")
-        a = np.asarray(activity, dtype="float64")
-        eligible = np.nan_to_num(a, nan=0.0) > 0
+    by_band = band_trigger(risk["severity"], policy)
+    eligible = top_k_eligible(activity, policy, len(risk))
     by_top_k = np.zeros(len(risk), dtype=bool)
     idx = np.flatnonzero(eligible)
     by_top_k[idx] = daily_top_k(risk["date"].iloc[idx], risk[policy.ordering].to_numpy(dtype="float64")[idx],

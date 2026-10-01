@@ -73,6 +73,13 @@ How to use it when prompting a chapter:
 | N59 the demo sample is validation and test users only | 14, 15, 16, 19 (reporting) |
 | N60 deduplication folds continuing scenario-2 activity; most missed days are in no alert | 14, 16, 19 (reporting) |
 | N61 the alert queue and the earlier daily top-k readouts rank different populations | 16, 19 (reporting) |
+| N62 Chapter 13 status (RETIRED) | - |
+| N63 the API serves PostgreSQL only; coverage is the D-6 rows | 14, 15, 16, 19 (reporting) |
+| N64 scores computed over HTTP are never stored | 14, 15, 17 |
+| N65 analysts are created by CLI; every login is audited | 14, 15, 18 |
+| N66 every list is paginated with a hard cap of 200 | 14, 17, 18 |
+| N67 a route is one return of a service call | 14, 17, 18 |
+| N68 /health's routes block is the readiness signal | 14, 15, 18 |
 
 ---
 
@@ -1001,3 +1008,101 @@ match the one a readout ranked.
 - That the anomaly score rates idle days so high on 38 dates is a property of
   the served model, not established as a cause of anything. Chapter 16 may
   look at it; it is not a reason to change the model now.
+
+## N62. Chapter 13 is PARTIALLY IMPLEMENTED until the API serves CERT full  (from Chapter 13)
+
+RETIRED (chapter 13, API verified on CERT full with 28 PASS / 0 FAIL and the integration tests
+passing through testcontainers; see `docs/audits/chapter_13_audit.md`).
+
+The API, the verifier and the tests pass on the synthetic chain, against a
+local PostgreSQL 16 (`CIRA_TEST_DATABASE_URL`) and against SQLite: 459
+passed, 1 skipped for the whole suite. Chapter 13 becomes IMPLEMENTED when
+all of the following hold on the development machine:
+
+- `SECRET_KEY` is a real secret in `.env` and an analyst exists
+  (`python -m app.services.accounts create`);
+- the API (`uvicorn app.main:app`) serves alert run
+  `20261001T062628Z-full-alerts` and `/health` shows every route group ready;
+- `scripts/verify_chapter13.py --database-url` runs with 0 FAIL against it;
+- `python -m pytest backend/tests/integration/test_ch13_api.py` runs with
+  Docker available and no `CIRA_TEST_DATABASE_URL`, so the testcontainers
+  branch is exercised (the Bible's acceptance item), and
+  `test_database_is_postgres` passes;
+- `docs/audits/chapter_13_audit.md` records the verifier output, the
+  re-scoring differences, the latency and explains every WARN.
+
+Until then no API number on CERT is quoted anywhere. Mark this note RETIRED
+when that is done.
+
+## N63. The API serves PostgreSQL only; coverage is the D-6 rows  (from Chapter 13)
+
+Routes read the loaded alert run's rows: alert member days and the
+c12-demo-sample-v1 window (HCEA D-6). A user's risk history and event
+timeline cover those days only; every coverage block says so (C13-5).
+
+- The dashboard (Chapter 14) shows the coverage note next to every history
+  chart and timeline, and never draws a gap between persisted days as
+  "no risk".
+- A wider history needs a larger D-6 sample (a new demo rule version, N59),
+  not a Parquet reader in the API: that would tie the API to the dataset
+  mount and could put training users' days on screen (N31).
+- The run served is chosen by audit row and served model (N28, N58), never
+  by row count or by `CIRA_PROFILE`.
+
+## N64. Scores computed over HTTP are never stored  (from Chapter 13)
+
+`POST /api/v1/anomaly/score` and `POST /api/v1/risk/score` compute and
+return; they write nothing (HCEA §8, N58). Their purpose is reproducing a
+stored decision and explaining a user-day that has no stored explanation.
+
+- `by_top_k` is always null there: a single user-day cannot be ranked
+  against its day. A route that claims a top-k result for one day is wrong.
+- Chapter 15 can use the re-scoring check (stored vector -> same anomaly
+  score and CRI) as its end-to-end lineage test.
+- Chapter 17 workers that persist scores go through the batch and
+  `app.alerts.persistence`, not through these routes.
+
+## N65. Analysts are created by CLI; every login is audited  (from Chapter 13)
+
+There is no registration route. `python -m app.services.accounts` creates and
+deactivates analysts, and every account change and login attempt writes an
+`audit_logs` row (`analyst_*`). Tokens are HS256, signed with `SECRET_KEY`,
+which must be a real secret of at least 32 characters.
+
+- The dashboard (Chapter 14) signs in through `POST /api/v1/auth/token` and
+  sends the bearer token; it never stores a password.
+- Role checks, refresh tokens, lockout and rate limiting are Chapter 18. Until
+  then `analyst` and `admin` read the same data.
+- Any new audit action keeps a name other than `alert_run_loaded` (N58).
+
+## N66. Every list is paginated with a hard cap of 200  (from Chapter 13)
+
+`/alerts`, `/events` and `/investigations` take `limit` (default 50, maximum
+200, a 422 above it) and `offset`, and return `page.total` and
+`page.max_limit` (HCEA §13). `/events` requires a `user_id`. Charts get
+server-side aggregates (`/risk/overview`, `/risk/users/{user}/history`).
+
+- Chapter 14 pages through lists and never asks for "all".
+- Any new list route follows the same shape; the OpenAPI unit test fails
+  otherwise.
+
+## N67. A route is one return of a service call  (from Chapter 13)
+
+Routers in `app/api/v1/` contain one `return` per handler and import only
+FastAPI, the dependencies, schemas and services. Services never import
+FastAPI. API, services and schemas never import label or offline code (N5).
+`backend/tests/unit/test_ch13_api_rules.py` enforces all three statically.
+
+- Chapters 17 and 18 (SSE, auth hardening) add routes under the same rule.
+
+## N68. /health's routes block is the readiness signal  (from Chapter 13)
+
+The top-level `status` still means "an anomaly model is loaded" (C8-7). The
+`routes` block says, per route group, whether it can answer now and why
+not; the alert/risk/investigation group names the run it would serve.
+
+- The dashboard (Chapter 14) reads `routes` to show a precise "not ready"
+  message instead of a generic error.
+- Chapter 15's outage tests check `routes` as well as `database`.
+- Chapter 18's container healthcheck can keep calling `/health` at the root.
+
