@@ -30,6 +30,7 @@ D-6); this runner only produces the Parquet it will read.
 """
 from __future__ import annotations
 
+from app.core.run_stamp import utc_run_stamp  # noqa: E402
 from app.core.runtime import apply_thread_caps
 
 apply_thread_caps()
@@ -40,7 +41,6 @@ import json  # noqa: E402
 import os  # noqa: E402
 import sys  # noqa: E402
 import time  # noqa: E402
-from datetime import datetime, timezone  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 import numpy as np  # noqa: E402
@@ -131,7 +131,7 @@ def run(args: argparse.Namespace) -> dict:
         keep = tags != "train"
         matrix, tags = matrix[keep].reset_index(drop=True), tags[keep]
 
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = utc_run_stamp()
     batch_run_id = f"{stamp}-{args.profile}-batch"
     out_dir = Path(args.processed_dir) / "scores" / "chapter8" / batch_run_id
     chunk = max(1, int(args.chunk_rows))

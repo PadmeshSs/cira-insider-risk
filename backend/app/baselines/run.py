@@ -24,6 +24,7 @@ dev-profile runs are marked ``reportable: false`` (N6, HCEA R10).
 """
 from __future__ import annotations
 
+from app.core.run_stamp import utc_run_stamp  # noqa: E402
 from app.core.runtime import apply_thread_caps
 
 apply_thread_caps()
@@ -34,7 +35,6 @@ import json  # noqa: E402
 import os  # noqa: E402
 import sys  # noqa: E402
 import time  # noqa: E402
-from datetime import datetime, timezone  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 import numpy as np  # noqa: E402
@@ -193,7 +193,7 @@ def run(args: argparse.Namespace) -> dict:
             raise RuntimeError(f"split {s!r} is empty under mode={args.split}")
 
     reportable = args.profile != "dev"
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = utc_run_stamp()
     run_id = f"{stamp}-{args.profile}-{args.split}-s{args.seed}"
     feature_fp = _feature_fingerprint(features_path)
     score_dir = processed / "scores" / "chapter6" / run_id

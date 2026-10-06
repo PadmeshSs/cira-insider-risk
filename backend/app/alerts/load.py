@@ -27,6 +27,7 @@ Loading the same alert run twice is refused (exit 2). Label-free (N5).
 """
 from __future__ import annotations
 
+from app.core.run_stamp import utc_run_stamp  # noqa: E402
 from app.core.runtime import apply_thread_caps
 
 apply_thread_caps()
@@ -38,7 +39,6 @@ import math  # noqa: E402
 import os  # noqa: E402
 import sys  # noqa: E402
 import time  # noqa: E402
-from datetime import datetime, timezone  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 import numpy as np  # noqa: E402
@@ -362,7 +362,7 @@ def run(args, built: tuple | None = None) -> dict:
     counts, problems = execute(url, plan, args.connect_timeout)
     if problems:
         raise PersistenceError("read-back after commit disagrees: " + "; ".join(problems))
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = utc_run_stamp()
     record = {"alert_run_id": plan.alert_run_id, "loaded_at": stamp, "database": _safe_url(url), "counts": counts,
               "summary": plan.summary, "wall_seconds": round(time.perf_counter() - started, 2),
               "peak_rss_mb": round(memory_rss_mb(), 1)}

@@ -34,6 +34,7 @@ any row, but they are never selected as examples. Persisting explanations to
 """
 from __future__ import annotations
 
+from app.core.run_stamp import utc_run_stamp  # noqa: E402
 from app.core.runtime import apply_thread_caps
 
 apply_thread_caps()
@@ -43,7 +44,6 @@ import json  # noqa: E402
 import os  # noqa: E402
 import sys  # noqa: E402
 import time  # noqa: E402
-from datetime import datetime, timezone  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 import numpy as np  # noqa: E402
@@ -230,7 +230,7 @@ def run(args: argparse.Namespace) -> dict:
     scores = all_scores[all_scores["model_split"] != "train"].reset_index(drop=True) if args.rows == "evaluation" else all_scores
     frame = aligned(fm.matrix, scores[["user_id", "date"]], f"matrix {fm.features_path.name}")
 
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = utc_run_stamp()
     run_id = f"{stamp}-{args.profile}-explain"
     out_dir = processed / "explanations" / "chapter11" / run_id
 

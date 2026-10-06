@@ -32,6 +32,7 @@ does the bounded PostgreSQL load (D-6) from this run.
 """
 from __future__ import annotations
 
+from app.core.run_stamp import utc_run_stamp  # noqa: E402
 from app.core.runtime import apply_thread_caps
 
 apply_thread_caps()
@@ -42,7 +43,6 @@ import os  # noqa: E402
 import sys  # noqa: E402
 import time  # noqa: E402
 from collections import Counter  # noqa: E402
-from datetime import datetime, timezone  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 import numpy as np  # noqa: E402
@@ -315,7 +315,7 @@ def run(args: argparse.Namespace) -> dict:
                                   max_users=args.demo_users, max_alerting_users=args.demo_alerting_users, seed=args.seed)
 
     # --- write ------------------------------------------------------------
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = utc_run_stamp()
     run_id = f"{stamp}-{args.profile}-alerts"
     out_dir = processed / "alerts" / "chapter12" / run_id
     lineage_cols = {"alert_run_id": run_id, "policy_version": policy.to_dict()["version"], "policy_hash": policy.policy_hash,

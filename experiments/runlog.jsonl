@@ -121,3 +121,11 @@
 {"stage": "chapter12_verification", "profile": "full", "alert_run_id": "20261001T062628Z-full-alerts", "database_checked": true, "readout_checked": true, "pass": 53, "warn": 2, "fail": 0, "peak_rss_mb": 1628.9}
 {"stage": "chapter13_verification", "alert_run_id": "20261001T062628Z-full-alerts", "policy_hash": "21cd9391fd48", "served_model": "gbdt-chapter8-v1-077a3dae6cee", "risk_score_seconds": {"median": 0.040813699990394525, "max": 0.08654589999059681, "n": 10}, "database_checked": true, "pass": 28, "warn": 0, "fail": 0}
 {"stage": "chapter13_verification", "alert_run_id": "20261001T062628Z-full-alerts", "policy_hash": "21cd9391fd48", "served_model": "gbdt-chapter8-v1-077a3dae6cee", "risk_score_seconds": {"median": 0.041827099994407035, "max": 0.04648720000113826, "n": 10}, "database_checked": true, "pass": 28, "warn": 0, "fail": 0}
+{"stage": "chapter15_verification", "stamp": "20261006T091235Z", "counts": {"PASS": 23, "WARN": 1, "FAIL": 3}, "browser": true, "cert": false, "wall_seconds": 278.6}
+{"stage": "chapter15_verification", "stamp": "20261006T092140Z", "counts": {"PASS": 22, "WARN": 1, "FAIL": 3}, "browser": true, "cert": false, "wall_seconds": 251.6}
+{"stage": "chapter15_verification", "stamp": "20261006T093548Z", "counts": {"PASS": 23, "WARN": 1, "FAIL": 2}, "browser": true, "cert": false, "wall_seconds": 380.8}
+{"stage": "chapter15_verification", "stamp": "20261006T103639Z", "counts": {"PASS": 25, "WARN": 1, "FAIL": 0}, "browser": true, "cert": false, "wall_seconds": 376.8}
+{"stage": "chapter13_verification", "database_checked": true, "pass": 13, "warn": 0, "fail": 1}
+{"stage": "chapter15_verification", "stamp": "20261006T105335Z", "counts": {"PASS": 25, "WARN": 0, "FAIL": 2}, "browser": true, "cert": true, "wall_seconds": 334.7}
+{"stage": "chapter13_verification", "alert_run_id": "20261001T062628Z-full-alerts", "policy_hash": "21cd9391fd48", "served_model": "gbdt-chapter8-v1-077a3dae6cee", "risk_score_seconds": {"median": 0.04529769999498967, "max": 0.05144680000375956, "n": 10}, "database_checked": true, "pass": 28, "warn": 0, "fail": 0}
+{"stage": "chapter15_verification", "stamp": "20261006T110956Z", "counts": {"PASS": 27, "WARN": 0, "FAIL": 0}, "browser": true, "cert": true, "wall_seconds": 319.4}

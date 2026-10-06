@@ -2,9 +2,9 @@
 
 Bible Chapter 14 / Architecture Phase 11 (§27), over the Chapter 13 API.
 
-Status: IMPLEMENTED against the Chapter 13 synthetic chain; PARTIALLY IMPLEMENTED for CERT full until the
-dashboard has been opened against the API serving `20261001T062628Z-full-alerts` on the development
-machine and the checks below are repeated there (N62 pattern).
+Status: IMPLEMENTED. Checked against the Chapter 13 synthetic chain here, and against the API serving
+`20261001T062628Z-full-alerts` on the development machine on 6 October 2026 by Chapter 15's
+`frontend/e2e/cert.spec.ts` (every view, re-scoring, API cut; see `docs/audits/chapter_15_audit.md`).
 
 ## What it is for
 
@@ -171,6 +171,10 @@ those badge colours were checked only in unit tests.
 
 ## Still open
 
-- Repeat the checks against the CERT full run on the development machine and record them in an audit.
-- Chapter 15: end-to-end tests (Playwright click-through) can reuse the reproduce check as the lineage test.
+- ~~Repeat the checks against the CERT full run on the development machine and record them in an audit.~~
+  Done by Chapter 15 (`cert.spec.ts`, `docs/audits/chapter_15_audit.md`).
+- ~~Chapter 15: end-to-end tests can reuse the reproduce check as the lineage test.~~ Done (`journey.spec.ts`,
+  `cert.spec.ts`).
+- The "CERT id" column of the event table is clipped at 1440 px when the right-hand panel is shown; it
+  scrolls sideways. Cosmetic, found by Chapter 15.
 - Chapter 17: SSE live alerts will need a live-update path in the queue.

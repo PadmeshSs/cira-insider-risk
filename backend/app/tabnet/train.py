@@ -62,6 +62,7 @@ Outputs of one run
 """
 from __future__ import annotations
 
+from app.core.run_stamp import utc_run_stamp  # noqa: E402
 from app.core.runtime import apply_thread_caps
 
 apply_thread_caps()
@@ -684,7 +685,7 @@ def run(args: argparse.Namespace) -> dict:
     split.info["masquerade_rows_excluded"] = {s: int(lab[s]["exclude_primary"].sum()) for s in SPLITS}
 
     reportable = args.profile != "dev"
-    run_id = f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{args.profile}-{args.split}-s{args.seed}"
+    run_id = f"{utc_run_stamp()}-{args.profile}-{args.split}-s{args.seed}"
     feature_fp = feature_fingerprint(fm.features_path)
     data_fp = data_fingerprint(feature_fp, split)
     split.info["data_fingerprint"] = data_fp

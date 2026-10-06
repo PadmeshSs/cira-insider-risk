@@ -22,6 +22,7 @@ Model-free and label-free: no score, no model_version, no label is read
 """
 from __future__ import annotations
 
+from app.core.run_stamp import utc_run_stamp  # noqa: E402
 from app.core.runtime import apply_thread_caps
 
 apply_thread_caps()
@@ -31,7 +32,6 @@ import json  # noqa: E402
 import os  # noqa: E402
 import sys  # noqa: E402
 import time  # noqa: E402
-from datetime import datetime, timezone  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 import numpy as np  # noqa: E402
@@ -111,7 +111,7 @@ def run(args) -> dict:
         parts = rows_for_split(out.context["user_id"], assignment)
     del frame
 
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = utc_run_stamp()
     run_id = f"{stamp}-{args.profile}-mitre"
     out_dir = processed / "mitre" / "chapter10" / run_id
     ctx = out.context.assign(mitre_run_id=run_id)

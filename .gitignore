@@ -183,3 +183,11 @@ reports/generated/
 # ------------------------------------------------------------
 /*.patch
 /*.zip
+
+# ------------------------------------------------------------
+# Chapter 15 end-to-end artefacts (rebuilt on every run)
+# ------------------------------------------------------------
+.e2e/
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/

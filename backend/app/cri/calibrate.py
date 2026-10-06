@@ -31,6 +31,7 @@ What it does
 """
 from __future__ import annotations
 
+from app.core.run_stamp import utc_run_stamp  # noqa: E402
 from app.core.runtime import apply_thread_caps
 
 apply_thread_caps()
@@ -204,7 +205,7 @@ def run(args: argparse.Namespace) -> dict:
     })
     maps = fit_maps(reference, config.rarity_decades)
 
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = utc_run_stamp()
     cal_id = f"{stamp}-{args.profile}-cri"
     model = {k: served.get(k) for k in ("model_name", "model_version", "registry_version", "run_id", "profile")}
     meta = {

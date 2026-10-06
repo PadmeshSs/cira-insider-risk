@@ -24,6 +24,7 @@ What it does
 """
 from __future__ import annotations
 
+from app.core.run_stamp import utc_run_stamp  # noqa: E402
 from app.core.runtime import apply_thread_caps
 
 apply_thread_caps()
@@ -159,7 +160,7 @@ def run(args) -> dict:
     decades = CRIConfig.from_env().rarity_decades
     maps = fit_maps(reference, decades)
 
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = utc_run_stamp()
     ref_id = f"{stamp}-{args.profile}-mitre"
     meta = {
         "chapter": 10,

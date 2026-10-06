@@ -36,6 +36,7 @@ into PostgreSQL is Chapter 12's job (HCEA §12, D-6).
 """
 from __future__ import annotations
 
+from app.core.run_stamp import utc_run_stamp  # noqa: E402
 from app.core.runtime import apply_thread_caps
 
 apply_thread_caps()
@@ -46,7 +47,6 @@ import json  # noqa: E402
 import os  # noqa: E402
 import sys  # noqa: E402
 import time  # noqa: E402
-from datetime import datetime, timezone  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 import numpy as np  # noqa: E402
@@ -200,7 +200,7 @@ def run(args: argparse.Namespace) -> dict:
     risk = engine.assemble(scores, ctx, parts, config)
     compute_seconds = time.perf_counter() - t0
 
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = utc_run_stamp()
     cri_run_id = f"{stamp}-{args.profile}-cri-{config.variant_name}" + ("-mitre" if mitre else "")
     out_dir = processed / "risk" / "chapter9" / cri_run_id
     risk.insert(len(risk.columns), "cri_run_id", cri_run_id)

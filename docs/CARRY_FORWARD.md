@@ -81,6 +81,11 @@ How to use it when prompting a chapter:
 | N67 a route is one return of a service call | 14, 17, 18 |
 | N68 /health's routes block is the readiness signal | 14, 15, 18 |
 | N69 dashboard computes nothing it displays | 14, 15, 17 |
+| N70 the e2e suite is the regression gate | 16, 17, 18, 19 |
+| N71 the e2e chain serves XGBoost; TabNet is checked as shadow | 16, 19 (reporting) |
+| N72 synthetic e2e numbers are never results | 16, 19 (reporting) |
+| N73 Chapter 15 status (RETIRED) | - |
+| N74 run ids come from app.core.run_stamp only | 16, 17, 18 |
 
 ---
 
@@ -297,6 +302,9 @@ IMPLEMENTED when `experiments/runlog.jsonl` has `chapter7_tabnet` lines for:
 Every WARN is explained in `docs/audits/chapter_7_audit.md`, which also lists
 the reported run ids (the Chapter 7 equivalent of N18). Until then no TabNet
 number is quoted anywhere. Mark this note RETIRED when that is done.
+
+RETIRED 6 October 2026: 27 PASS, 0 WARN, 0 FAIL on the development machine with the CERT checks
+(`docs/audits/chapter_15_audit.md`).
 
 ## N20. TabNet's score is a ranking score, not a probability  (from Chapter 7)
 
@@ -1119,3 +1127,62 @@ returned buckets), each listed in `docs/chapters/chapter_14_dashboard.md` "What 
 - Provenance hues are fixed: cyan = served model, indigo = CRI context, fuchsia = ATT&CK. They never mark
   severity, and severity colours never mark provenance.
 - Chapter 15's end-to-end test can drive the "Re-score this day" control as the lineage check.
+
+
+## N70. The e2e suite is the regression gate  (from Chapter 15)
+
+`backend/tests/e2e` rebuilds the whole chain from raw CSV on every run
+(Chapters 5-12, a fresh PostgreSQL at Alembic head, two failing loads, the
+real load) and checks one raw row hop by hop to the API. It needs PostgreSQL
+(`CIRA_E2E_DATABASE_URL` or Docker); without it the suite skips, and a skip
+is a FAIL in `scripts/verify_chapter15.py`.
+
+- Bible Chapter 15 step 4: after every change in Chapters 16-19, run
+  `python scripts/verify_chapter15.py` (add `--browser` when the dashboard
+  changed). 0 FAIL before a commit is called done.
+- A change that breaks a hop is fixed in the code, not by loosening the test.
+  If a hop's meaning really changes (new served model, new policy version),
+  the test changes in the same commit and says why.
+- Chapter 18's CI pipeline runs the same three pytest layers and the Vitest
+  suite; the Playwright click-through may stay manual.
+- The e2e suite must stay under a minute (HCEA §14). Measured on the build
+  container: about 31 s in pytest.
+
+## N71. The e2e chain serves XGBoost; TabNet is checked as shadow  (from Chapter 15)
+
+The Bible's chain reads "TabNet -> anomaly score". Since C8-1 the served
+model is XGBoost and TabNet runs as shadow (N28, N32). Chapter 15 tests the
+chain as built: TabNet is trained and scores every row, and its scores are
+checked to reach no CRI, alert or explanation.
+
+- The report and viva say this in these words. "TabNet is the detection
+  model" is not a claim this repository supports.
+- If Chapter 16 or a later decision serves TabNet, the e2e suite runs with
+  `CIRA_SERVED_MODEL=tabnet:v0001` and the shadow assertions swap.
+
+## N72. Synthetic e2e numbers are never results  (from Chapter 15)
+
+The e2e stack is `tests/fixtures/synthetic_ch6`: 32 users, 13 planted
+insiders, 3 TabNet epochs. Its scores, alerts and the reproducibility check
+prove the code path, nothing about detection on CERT (N6, R10).
+
+- No count, score or timing from `.e2e/` or a pytest temp directory goes into
+  the report as a CIRA result. Screenshots from `ch15-run-through/` are
+  labelled synthetic wherever they appear.
+- The §45 item 16 check ("metrics reproducible") passes on the fixture; the
+  CERT version is Chapter 16's.
+
+## N73. Chapter 15 is PARTIALLY IMPLEMENTED until the CERT checks pass  (from Chapter 15)
+
+RETIRED (chapter 15, `scripts/verify_chapter15.py --browser` on the development machine with the CERT
+API and dashboard checks: 27 PASS / 0 WARN / 0 FAIL; e2e 30 passed, 0 skipped; see
+`docs/audits/chapter_15_audit.md`).
+
+## N74. Run ids come from `app.core.run_stamp` only  (from Chapter 15, C15-4)
+
+Same-second run ids used to overwrite each other's results (found by Chapter 15 on the development
+machine through intermittent `test_ch7_runner` failures). Any new entry point (Chapter 16 ablations,
+Chapter 17 streaming runs) takes its stamp from `utc_run_stamp()`, never from `datetime.now()`.
+`tests/unit/test_ch15_run_stamp.py` enforces it. Chapter 16 runs many ablations back to back in one
+process, which is exactly the case this protects.
+
