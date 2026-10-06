@@ -73,22 +73,30 @@ table (`ch15-run-through/6-investigation-traced-event.png`).
 
 ## CERT full run
 
-The API served the CERT run recorded in the Chapter 12 and 13 audits
-(`20261001T062628Z-full-alerts`, policy hash `21cd9391fd48`); the run id, policy hash, served model and
-counts the verifier saw are top-level fields (`alert_run_id`, `policy_hash`, `served_model`, `counts`)
-of `verification_20261006T111502Z.json`. Against it:
+Read from `verification_20261006T111502Z.json` (the `verify_chapter13` report, top-level fields and
+`checks`):
 
-- `verify_chapter13`, 28 checks: health and every route ready; wrong password and missing token refused;
-  the API contract; the full queue (open and suppressed counted together, policy order, both scores,
-  no training-user alert, page cap); ten open alerts in depth (members, explanation sections, ATT&CK);
-  on-demand scoring reproducing the stored anomaly score within 1e-9 and CRI within 1e-6; the
-  `alert_run_loaded` audit row and stored counts equal to the API's.
-- `cert.spec.ts`: signed in through the login form; on all nine views the run id, the served model
-  version, the overview's top users and the top alert's first peak-day event (by CERT id) were on screen
-  as the API returned them; "Re-score this day" on the top three open alerts showed "The stored decision
-  reproduces from its stored inputs."; with every API request refused, each view showed an error and none
-  of those values (the user id in a `/users/<id>` address excepted, which the breadcrumb takes from the
-  URL).
+| What | Value |
+|---|---|
+| Alert run served | `20261001T062628Z-full-alerts`, policy hash `21cd9391fd48`, the run the Chapter 12 and 13 audits record; `/health` and the queue name the same run |
+| Served model | `gbdt-chapter8-v1-077a3dae6cee` (as in the Chapter 13 audit); CRI, MITRE and explainability loaded |
+| Database | reachable at Alembic `9f3b2c7d4e81`; the served run's `alert_run_loaded` audit row exists once |
+| Queue | 232 open and 33 suppressed, counted together; ordered by `anomaly_score`; both scores on every alert; all 33 suppressed alerts attached to open alerts; 0 alerts from training users (N31); `limit` capped at 200 on `/events`, `/alerts`, `/investigations` and 201 refused with 422 |
+| Stored counts | {open 232, suppressed 33} in the database, equal to the API's |
+| Ten open alerts in depth | members, explanation sections and ATT&CK techniques consistent (N45, N50) |
+| On-demand re-scoring, 10 alerts | anomaly score max abs diff 0.00e+00; CRI max abs diff 0.00e+00 (N34) |
+| `POST /risk/score` time | median 0.045 s, max 0.051 s, n = 10 |
+| Auth | wrong password and missing token refused with 401; analyst `padmesh-ch15` signs in; `/users/me` is that analyst |
+| Contract | every API group of Architecture §25 present; no score described as a probability (N20) |
+
+Result: 28 PASS, 0 WARN, 0 FAIL.
+
+In the browser (`cert.spec.ts`, 14 s): signed in through the login form; on all nine views the run id,
+the served model version, the overview's top users and the top alert's first peak-day event (by CERT
+id) were on screen as the API returned them; "Re-score this day" on the top three open alerts showed
+"The stored decision reproduces from its stored inputs."; with every API request refused, each view
+showed an error and none of those values (the user id in a `/users/<id>` address excepted, which the
+breadcrumb takes from the URL).
 
 This closes the item `chapter_14_dashboard.md` left open: the dashboard checked against the CERT run.
 

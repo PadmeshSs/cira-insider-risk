@@ -27,12 +27,13 @@ passes its checks.
 | 11 | Explainability: TreeSHAP on the served XGBoost, KernelSHAP corroboration, TabNet mask view, analyst reasons | IMPLEMENTED; explain run 20260930T190519Z-full-explain |
 | 12 | Alert correlation, deduplication and persistence; lineage entities | IMPLEMENTED; alert run 20261001T062628Z-full-alerts, policy 21cd9391fd48 |
 | 13 | FastAPI integration: twelve route groups, analyst login, on-demand scoring, `/health` readiness | IMPLEMENTED; serves alert run 20261001T062628Z-full-alerts, verifier 28 PASS / 0 FAIL |
-| 14 | React + TypeScript SOC dashboard: eight views over the Chapter 13 API | IMPLEMENTED on the synthetic chain; CERT full check pending |
-| 15-16 | End-to-end validation, evaluation | PLANNED |
+| 14 | React + TypeScript SOC dashboard: eight views over the Chapter 13 API | IMPLEMENTED; checked against alert run 20261001T062628Z-full-alerts by Chapter 15 |
+| 15 | End-to-end validation: raw CSV to PostgreSQL to API to dashboard, §36 failure modes, §45 acceptance | IMPLEMENTED; verifier 27 PASS / 0 FAIL with the CERT API and dashboard checks |
+| 16 | Evaluation and research analysis | PLANNED |
 | 17-18 | Kafka, Redis, Celery, SSE, OpenSearch, observability, K8s | NOT IMPLEMENTED (production extensions) |
 
 See `docs/audits/chapter_1_5_audit.md`, `docs/audits/chapter_6_audit.md` and `docs/audits/chapter_7_audit.md`, `docs/audits/chapter_8_audit.md`, `docs/audits/chapter_9_audit.md` and
-`docs/audits/chapter_10_audit.md`, `docs/audits/chapter_11_audit.md`, `docs/audits/chapter_12_audit.md` and `docs/audits/chapter_13_audit.md` for the chapter reviews, and
+`docs/audits/chapter_10_audit.md`, `docs/audits/chapter_11_audit.md`, `docs/audits/chapter_12_audit.md`, `docs/audits/chapter_13_audit.md` and `docs/audits/chapter_15_audit.md` for the chapter reviews, and
 `docs/CARRY_FORWARD.md` for the rules every later chapter must follow.
 Chapter 6 is described in `docs/chapters/chapter_6_baselines.md`, Chapter 7
 in `docs/chapters/chapter_7_tabnet.md`, Chapter 8 in
@@ -40,7 +41,11 @@ in `docs/chapters/chapter_7_tabnet.md`, Chapter 8 in
 Chapter 10 in `docs/chapters/chapter_10_mitre.md`, Chapter 11 in
 `docs/chapters/chapter_11_explainability.md`, Chapter 12 in `docs/chapters/chapter_12_alerts.md`,
 Chapter 13 in `docs/chapters/chapter_13_api.md`, Chapter 14 in `docs/chapters/chapter_14_dashboard.md`
-(run steps in `frontend/README.md`).
+(run steps in `frontend/README.md`), Chapter 15 in `docs/chapters/chapter_15_e2e.md`.
+
+What the dashboard shows: the stored, batch-scored decisions over the CERT r4.2 history (2010-2011),
+read from PostgreSQL through the API. It is not a live feed; the only computation on demand is
+"Re-score this day", which is never stored. Live alert delivery is Chapter 17.
 
 ## Running Chapter 5
 
@@ -253,8 +258,52 @@ Lists are capped at 200 rows per page, and nothing computed over HTTP is
 stored. `/health` gains `auth` and `routes` blocks. Design, routes, failure
 modes and what makes the chapter IMPLEMENTED: `docs/chapters/chapter_13_api.md`.
 
+## Running Chapter 15
+
+Chapter 15 rebuilds the whole chain from raw CSV on every run and checks one raw event at every hop:
+Stage 0, features, the served XGBoost and shadow TabNet scores, CRI, ATT&CK context, explanation, alert,
+the PostgreSQL lineage, the API and the dashboard. It also repeats the §36 failure modes against a real
+database. The data is a synthetic CERT-shaped fixture; its numbers are never results (N72). From the
+repository root, with PostgreSQL reachable (the compose service works) and Docker running for the
+integration tests:
+
+```powershell
+$env:CIRA_E2E_DATABASE_URL = "postgresql+asyncpg://cira:<password>@localhost:5433/postgres"
+python -m pytest backend/tests/e2e                    # 30 passed, 0 skipped, under a minute
+
+cd frontend; npm ci; npx playwright install chromium; cd ..
+python scripts/verify_chapter15.py --browser          # every layer, the click-through, §45 report
+```
+
+`CIRA_E2E_DATABASE_URL` points at a server where the tests may create databases; they create and drop
+their own `cira_e2e_<hex>` and never touch `insider_threat_db`. Never point `CIRA_TEST_DATABASE_URL` at
+`insider_threat_db`: the Chapter 13 integration tests would load a synthetic alert run into it, and the
+API serves the newest run.
+
+Against the CERT full run, with the API on port 8000 allowing the dashboard origin
+(`CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5174`):
+
+```powershell
+python scripts/verify_chapter15.py --browser --cert-username <analyst> --cert-database-url "<DATABASE_URL>"
+```
+
+The report goes to `experiments/results/chapter15/verification_<stamp>.md` with one runlog line.
+Design, the traced event and deviations: `docs/chapters/chapter_15_e2e.md`; the record:
+`docs/audits/chapter_15_audit.md`.
+
 ## Tests
 
 ```bash
-pytest            # from the repo root
+pytest                                   # from the repo root: unit, integration and e2e
+pytest backend/tests/unit                # no database needed
+pytest backend/tests/integration         # PostgreSQL through testcontainers (Docker), or CIRA_TEST_DATABASE_URL
+pytest backend/tests/e2e                 # needs CIRA_E2E_DATABASE_URL or Docker; skips without PostgreSQL
+python scripts/show_failures.py          # tracebacks from the verifier's last JUnit files
 ```
+
+A skipped e2e suite is a FAIL for Chapter 15 (`verify_chapter15.py` reports it so). After any change in
+Chapters 16-19, run `python scripts/verify_chapter15.py` and keep it at 0 FAIL (N70). New pipeline entry
+points take their run id from `app.core.run_stamp.utc_run_stamp()` (N74).
+
+Frontend: `npm run lint`, `npm run build`, `npm test` (Vitest) and `npm run test:e2e` (Playwright) in
+`frontend/`; see `frontend/README.md`.
