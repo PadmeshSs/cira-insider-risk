@@ -559,6 +559,12 @@ def _version(module: str) -> str | None:
 SCORE_COLUMNS = ("user_id", "date", "split", "raw_score", "anomaly_score", "model_name", "model_version")
 
 
+def split_seed(args) -> int:
+    """The seed of the saved split to load: ``--split-seed`` if given, else ``--seed`` (unchanged behaviour)."""
+    value = getattr(args, "split_seed", None)
+    return int(args.seed if value is None else value)
+
+
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     root = repo_root()
     d = TabNetDetector()
@@ -568,6 +574,9 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     p.add_argument("--profile", default=os.getenv("CIRA_PROFILE", "dev"), choices=("dev", "mid", "full"))
     p.add_argument("--split", default="user", choices=("user", "time"))
     p.add_argument("--seed", type=int, default=int(os.getenv("CIRA_SEED", "42")))
+    p.add_argument("--split-seed", type=int, default=None,
+                   help="seed of the saved user split to load (default: --seed). Chapter 16 trains other model "
+                        "seeds on the SAME split file by passing the split's seed here (N11, N78)")
     p.add_argument("--budgets", default=",".join(str(k) for k in DEFAULT_BUDGETS))
     p.add_argument("--fractions", default=",".join(str(f) for f in DEFAULT_FRACTIONS))
     p.add_argument("--rebuild-split", action="store_true", help="only if the split must change; say so in the write-up (N11)")
@@ -673,8 +682,8 @@ def run(args: argparse.Namespace) -> dict:
 
     # --- split (N3, N11) ---------------------------------------------------
     split = make_split(
-        keys, mode=args.split, insider_scenarios=scen, seed=args.seed, profile=args.profile, splits_dir=args.splits_dir,
-        fractions=fractions, rebuild=args.rebuild_split,
+        keys, mode=args.split, insider_scenarios=scen, seed=split_seed(args), profile=args.profile,
+        splits_dir=args.splits_dir, fractions=fractions, rebuild=args.rebuild_split,
         time_validation_start=args.time_validation_start, time_test_start=args.time_test_start,
     )
     if split.info.get("created_now") and args.profile != "dev":
@@ -816,7 +825,8 @@ def run(args: argparse.Namespace) -> dict:
     append_experiment_runlog({
         "stage": "chapter7_tabnet", "run_id": run_id, "model": MODEL_NAME, "model_version": detector.model_version,
         "config_hash": cfg_hash, "registry_version": provenance.get("registry_version"), "profile": args.profile,
-        "reportable": reportable, "split_mode": args.split, "seed": args.seed, "tag": args.tag,
+        "reportable": reportable, "split_mode": args.split, "seed": args.seed, "split_seed": split_seed(args),
+        "tag": args.tag,
         "excluded_features": excluded,
         "imbalance": meta["imbalance"]["method"], "effective_positive_weight": meta["imbalance"]["effective_positive_weight"],
         "train_positive_rate": meta["imbalance"]["train_positive_rate"], "pretrain": bool(args.pretrain),

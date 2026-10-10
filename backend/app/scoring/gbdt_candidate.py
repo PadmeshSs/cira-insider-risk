@@ -100,6 +100,12 @@ def _scenario_summary(block: dict, budgets) -> dict:
     return out
 
 
+def split_seed(args) -> int:
+    """The seed of the saved split to load: ``--split-seed`` if given, else ``--seed`` (unchanged behaviour)."""
+    value = getattr(args, "split_seed", None)
+    return int(args.seed if value is None else value)
+
+
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     root = repo_root()
     p = argparse.ArgumentParser(description="CIRA Chapter 8: behaviour-only XGBoost serving candidate")
@@ -107,6 +113,9 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     p.add_argument("--profile", default=os.getenv("CIRA_PROFILE", "dev"), choices=("dev", "mid", "full"))
     p.add_argument("--split", default="user", choices=("user", "time"))
     p.add_argument("--seed", type=int, default=int(os.getenv("CIRA_SEED", "42")))
+    p.add_argument("--split-seed", type=int, default=None,
+                   help="seed of the saved user split to load (default: --seed). Chapter 16 trains other model "
+                        "seeds on the SAME split file by passing the split's seed here (N11, N78)")
     p.add_argument("--exclude-features", default=DEFAULT_EXCLUDE,
                    help="comma-separated column prefixes kept out of the model input (default: the static traits, N25)")
     p.add_argument("--budgets", default=",".join(str(k) for k in DEFAULT_BUDGETS))
@@ -144,8 +153,9 @@ def run(args: argparse.Namespace) -> dict:
     scen = insider_scenarios(views, set(keys["user_id"].unique().tolist()))
 
     split = make_split(
-        keys, mode=args.split, insider_scenarios=scen, seed=args.seed, profile=args.profile, splits_dir=args.splits_dir,
-        fractions=fractions, time_validation_start=args.time_validation_start, time_test_start=args.time_test_start,
+        keys, mode=args.split, insider_scenarios=scen, seed=split_seed(args), profile=args.profile,
+        splits_dir=args.splits_dir, fractions=fractions,
+        time_validation_start=args.time_validation_start, time_test_start=args.time_test_start,
     )
     if split.info.get("created_now") and args.profile != "dev":
         print(f"NOTE: {split.info['file']} was created now; comparisons with Chapters 6 and 7 need the file they used (N11).", flush=True)
@@ -277,7 +287,8 @@ def run(args: argparse.Namespace) -> dict:
     append_experiment_runlog({
         "stage": "chapter8_gbdt_candidate", "run_id": run_id, "model": MODEL_NAME, "model_version": detector.model_version,
         "registry_version": provenance.get("registry_version"), "profile": args.profile, "reportable": reportable,
-        "split_mode": args.split, "seed": args.seed, "tag": args.tag, "excluded_features": excluded,
+        "split_mode": args.split, "seed": args.seed, "split_seed": split_seed(args), "tag": args.tag,
+        "excluded_features": excluded,
         "imbalance": "scale_pos_weight", "effective_positive_weight": imbalance["effective_positive_weight"],
         "train_positive_rate": imbalance["train_positive_rate"], "device": meta.get("device_used"),
         "best_iteration": meta.get("best_iteration"), "valid_pr_auc": val_head["pr_auc"],

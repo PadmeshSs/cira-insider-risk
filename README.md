@@ -29,11 +29,11 @@ passes its checks.
 | 13 | FastAPI integration: twelve route groups, analyst login, on-demand scoring, `/health` readiness | IMPLEMENTED; serves alert run 20261001T062628Z-full-alerts, verifier 28 PASS / 0 FAIL |
 | 14 | React + TypeScript SOC dashboard: eight views over the Chapter 13 API | IMPLEMENTED; checked against alert run 20261001T062628Z-full-alerts by Chapter 15 |
 | 15 | End-to-end validation: raw CSV to PostgreSQL to API to dashboard, §36 failure modes, §45 acceptance | IMPLEMENTED; verifier 27 PASS / 0 FAIL with the CERT API and dashboard checks |
-| 16 | Evaluation and research analysis | PLANNED |
+| 16 | Evaluation and ablations: seeds, bootstrap intervals, CRI and MITRE test readout, alert queue on test | IMPLEMENTED; verifier 29 PASS / 0 WARN / 0 FAIL with the CERT seed runs and the pinned test readout |
 | 17-18 | Kafka, Redis, Celery, SSE, OpenSearch, observability, K8s | NOT IMPLEMENTED (production extensions) |
 
 See `docs/audits/chapter_1_5_audit.md`, `docs/audits/chapter_6_audit.md` and `docs/audits/chapter_7_audit.md`, `docs/audits/chapter_8_audit.md`, `docs/audits/chapter_9_audit.md` and
-`docs/audits/chapter_10_audit.md`, `docs/audits/chapter_11_audit.md`, `docs/audits/chapter_12_audit.md`, `docs/audits/chapter_13_audit.md` and `docs/audits/chapter_15_audit.md` for the chapter reviews, and
+`docs/audits/chapter_10_audit.md`, `docs/audits/chapter_11_audit.md`, `docs/audits/chapter_12_audit.md`, `docs/audits/chapter_13_audit.md`, `docs/audits/chapter_15_audit.md` and `docs/audits/chapter_16_audit.md` for the chapter reviews, and
 `docs/CARRY_FORWARD.md` for the rules every later chapter must follow.
 Chapter 6 is described in `docs/chapters/chapter_6_baselines.md`, Chapter 7
 in `docs/chapters/chapter_7_tabnet.md`, Chapter 8 in
@@ -41,7 +41,7 @@ in `docs/chapters/chapter_7_tabnet.md`, Chapter 8 in
 Chapter 10 in `docs/chapters/chapter_10_mitre.md`, Chapter 11 in
 `docs/chapters/chapter_11_explainability.md`, Chapter 12 in `docs/chapters/chapter_12_alerts.md`,
 Chapter 13 in `docs/chapters/chapter_13_api.md`, Chapter 14 in `docs/chapters/chapter_14_dashboard.md`
-(run steps in `frontend/README.md`), Chapter 15 in `docs/chapters/chapter_15_e2e.md`.
+(run steps in `frontend/README.md`), Chapter 15 in `docs/chapters/chapter_15_e2e.md`, Chapter 16 in `docs/chapters/chapter_16_evaluation.md`.
 
 What the dashboard shows: the stored, batch-scored decisions over the CERT r4.2 history (2010-2011),
 read from PostgreSQL through the API. It is not a live feed; the only computation on demand is
@@ -307,3 +307,15 @@ points take their run id from `app.core.run_stamp.utc_run_stamp()` (N74).
 
 Frontend: `npm run lint`, `npm run build`, `npm test` (Vitest) and `npm run test:e2e` (Playwright) in
 `frontend/`; see `frontend/README.md`.
+
+## Reproducing the Chapter 16 evaluation
+
+Needs the Chapter 5 to 12 outputs on `CERT_PROCESSED_DIR` and the pins in `.env`. From `backend/`:
+
+```bash
+python -m app.evaluation.seeds --profile full                      # six seeds, resumable
+python -m app.evaluation.ablation --profile full --part validation # rehearsal
+python -m app.evaluation.ablation --profile full --part test       # the pinned readout, written once
+python -m app.evaluation.report                                    # experiments/chapter16_evaluation_report.md
+cd .. && python scripts/verify_chapter16.py --recompute
+```

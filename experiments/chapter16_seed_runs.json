@@ -1,0 +1,237 @@
+{
+  "configs": {
+    "all_features": "",
+    "behaviour": "psych_,peer_department_size"
+  },
+  "models": [
+    "tabnet",
+    "gbdt"
+  ],
+  "note": "seed runs are not registered and never served (N21, N28); score files only",
+  "profile": "full",
+  "runs": {
+    "gbdt/all_features/42": {
+      "finished_at": "2026-10-07T20:53:48+00:00",
+      "model_version": "gbdt-chapter6-v1-1bbb19ec1545",
+      "reference": false,
+      "run_id": "20261007T205304Z-full-user-s42",
+      "scores_path": "D:\\CIRA_dataset\\datasets\\processed\\scores\\chapter6\\20261007T205304Z-full-user-s42\\gbdt.parquet",
+      "seed": 42,
+      "wall_seconds": 45.93
+    },
+    "gbdt/all_features/43": {
+      "finished_at": "2026-10-07T20:54:31+00:00",
+      "model_version": "gbdt-chapter6-v1-d36534e365e6",
+      "reference": false,
+      "run_id": "20261007T205350Z-full-user-s43",
+      "scores_path": "D:\\CIRA_dataset\\datasets\\processed\\scores\\chapter6\\20261007T205350Z-full-user-s43\\gbdt.parquet",
+      "seed": 43,
+      "wall_seconds": 43.4
+    },
+    "gbdt/all_features/44": {
+      "finished_at": "2026-10-07T20:55:04+00:00",
+      "model_version": "gbdt-chapter6-v1-271076d49990",
+      "reference": false,
+      "run_id": "20261007T205433Z-full-user-s44",
+      "scores_path": "D:\\CIRA_dataset\\datasets\\processed\\scores\\chapter6\\20261007T205433Z-full-user-s44\\gbdt.parquet",
+      "seed": 44,
+      "wall_seconds": 32.96
+    },
+    "gbdt/all_features/45": {
+      "finished_at": "2026-10-07T20:55:33+00:00",
+      "model_version": "gbdt-chapter6-v1-3ae3727e9bd0",
+      "reference": false,
+      "run_id": "20261007T205506Z-full-user-s45",
+      "scores_path": "D:\\CIRA_dataset\\datasets\\processed\\scores\\chapter6\\20261007T205506Z-full-user-s45\\gbdt.parquet",
+      "seed": 45,
+      "wall_seconds": 29.25
+    },
+    "gbdt/all_features/46": {
+      "finished_at": "2026-10-07T20:56:11+00:00",
+      "model_version": "gbdt-chapter6-v1-f7d2073b97f3",
+      "reference": false,
+      "run_id": "20261007T205535Z-full-user-s46",
+      "scores_path": "D:\\CIRA_dataset\\datasets\\processed\\scores\\chapter6\\20261007T205535Z-full-user-s46\\gbdt.parquet",
+      "seed": 46,
+      "wall_seconds": 37.26
+    },
+    "gbdt/all_features/47": {
+      "finished_at": "2026-10-07T20:56:42+00:00",
+      "model_version": "gbdt-chapter6-v1-732fffd5f5a8",
+      "reference": false,
+      "run_id": "20261007T205613Z-full-user-s47",
+      "scores_path": "D:\\CIRA_dataset\\datasets\\processed\\scores\\chapter6\\20261007T205613Z-full-user-s47\\gbdt.parquet",
+      "seed": 47,
+      "wall_seconds": 30.99
+    },
+    "gbdt/behaviour/42": {
+      "model_version": "gbdt-chapter8-v1-077a3dae6cee",
+      "reference": true,
+      "registry_version": "v0003",
+      "run_id": "20260928T194711Z-full-user-s42",
+      "source": "experiments/chapter8_reference_runs.json"
+    },
+    "gbdt/behaviour/43": {
+      "finished_at": "2026-10-07T20:50:27+00:00",
+      "model_version": "gbdt-chapter8-v1-ce0edee694f2",
+      "reference": false,
+      "run_id": "20261007T204944Z-full-user-s43",
+      "scores_path": "D:\\CIRA_dataset\\datasets\\processed\\scores\\chapter8\\20261007T204944Z-full-user-s43\\gbdt.parquet",
+      "seed": 43,
+      "wall_seconds": 44.39
+    },
+    "gbdt/behaviour/44": {
+      "finished_at": "2026-10-07T20:51:09+00:00",
+      "model_version": "gbdt-chapter8-v1-3e57692660b5",
+      "reference": false,
+      "run_id": "20261007T205028Z-full-user-s44",
+      "scores_path": "D:\\CIRA_dataset\\datasets\\processed\\scores\\chapter8\\20261007T205028Z-full-user-s44\\gbdt.parquet",
+      "seed": 44,
+      "wall_seconds": 42.42
+    },
+    "gbdt/behaviour/45": {
+      "finished_at": "2026-10-07T20:51:35+00:00",
+      "model_version": "gbdt-chapter8-v1-d7fd114c0e65",
+      "reference": false,
+      "run_id": "20261007T205111Z-full-user-s45",
+      "scores_path": "D:\\CIRA_dataset\\datasets\\processed\\scores\\chapter8\\20261007T205111Z-full-user-s45\\gbdt.parquet",
+      "seed": 45,
+      "wall_seconds": 26.29
+    },
+    "gbdt/behaviour/46": {
+      "finished_at": "2026-10-07T20:52:19+00:00",
+      "model_version": "gbdt-chapter8-v1-3767c3a8798c",
+      "reference": false,
+      "run_id": "20261007T205137Z-full-user-s46",
+      "scores_path": "D:\\CIRA_dataset\\datasets\\processed\\scores\\chapter8\\20261007T205137Z-full-user-s46\\gbdt.parquet",
+      "seed": 46,
+      "wall_seconds": 43.85
+    },
+    "gbdt/behaviour/47": {
+      "finished_at": "2026-10-07T20:53:02+00:00",
+      "model_version": "gbdt-chapter8-v1-30de4de9756b",
+      "reference": false,
+      "run_id": "20261007T205221Z-full-user-s47",
+      "scores_path": "D:\\CIRA_dataset\\datasets\\processed\\scores\\chapter8\\20261007T205221Z-full-user-s47\\gbdt.parquet",
+      "seed": 47,
+      "wall_seconds": 42.65
+    },
+    "tabnet/all_features/42": {
+      "finished_at": "2026-10-07T19:58:56+00:00",
+      "model_version": "tabnet-chapter7-v1-51ffd76ae6d7",
+      "reference": false,
+      "run_id": "20261007T195141Z-full-user-s42",
+      "scores_path": "D:\\CIRA_dataset\\datasets\\processed\\scores\\chapter7\\20261007T195141Z-full-user-s42\\tabnet.parquet",
+      "seed": 42,
+      "wall_seconds": 436.46
+    },
+    "tabnet/all_features/43": {
+      "finished_at": "2026-10-07T20:06:22+00:00",
+      "model_version": "tabnet-chapter7-v1-0e19179533ee",
+      "reference": false,
+      "run_id": "20261007T195858Z-full-user-s43",
+      "scores_path": "D:\\CIRA_dataset\\datasets\\processed\\scores\\chapter7\\20261007T195858Z-full-user-s43\\tabnet.parquet",
+      "seed": 43,
+      "wall_seconds": 445.91
+    },
+    "tabnet/all_features/44": {
+      "finished_at": "2026-10-07T20:14:52+00:00",
+      "model_version": "tabnet-chapter7-v1-fa358b6022d7",
+      "reference": false,
+      "run_id": "20261007T200624Z-full-user-s44",
+      "scores_path": "D:\\CIRA_dataset\\datasets\\processed\\scores\\chapter7\\20261007T200624Z-full-user-s44\\tabnet.parquet",
+      "seed": 44,
+      "wall_seconds": 510.4
+    },
+    "tabnet/all_features/45": {
+      "finished_at": "2026-10-07T20:24:44+00:00",
+      "model_version": "tabnet-chapter7-v1-7484ed8ce54f",
+      "reference": false,
+      "run_id": "20261007T201454Z-full-user-s45",
+      "scores_path": "D:\\CIRA_dataset\\datasets\\processed\\scores\\chapter7\\20261007T201454Z-full-user-s45\\tabnet.parquet",
+      "seed": 45,
+      "wall_seconds": 592.05
+    },
+    "tabnet/all_features/46": {
+      "finished_at": "2026-10-07T20:37:29+00:00",
+      "model_version": "tabnet-chapter7-v1-5cf7b19d4953",
+      "reference": false,
+      "run_id": "20261007T202446Z-full-user-s46",
+      "scores_path": "D:\\CIRA_dataset\\datasets\\processed\\scores\\chapter7\\20261007T202446Z-full-user-s46\\tabnet.parquet",
+      "seed": 46,
+      "wall_seconds": 764.73
+    },
+    "tabnet/all_features/47": {
+      "finished_at": "2026-10-07T20:49:42+00:00",
+      "model_version": "tabnet-chapter7-v1-41f7360d78f1",
+      "reference": false,
+      "run_id": "20261007T203731Z-full-user-s47",
+      "scores_path": "D:\\CIRA_dataset\\datasets\\processed\\scores\\chapter7\\20261007T203731Z-full-user-s47\\tabnet.parquet",
+      "seed": 47,
+      "wall_seconds": 733.12
+    },
+    "tabnet/behaviour/42": {
+      "model_version": "tabnet-chapter7-v1-e03b3d0d3360",
+      "reference": true,
+      "registry_version": "v0005",
+      "run_id": "20260927T162456Z-full-user-s42",
+      "source": "experiments/chapter7_reference_runs.json"
+    },
+    "tabnet/behaviour/43": {
+      "finished_at": "2026-10-07T19:03:26+00:00",
+      "model_version": "tabnet-chapter7-v1-3c916874daa1",
+      "reference": false,
+      "run_id": "20261007T185123Z-full-user-s43",
+      "scores_path": "D:\\CIRA_dataset\\datasets\\processed\\scores\\chapter7\\20261007T185123Z-full-user-s43\\tabnet.parquet",
+      "seed": 43,
+      "wall_seconds": 725.85
+    },
+    "tabnet/behaviour/44": {
+      "finished_at": "2026-10-07T19:10:04+00:00",
+      "model_version": "tabnet-chapter7-v1-c00290614d4b",
+      "reference": false,
+      "run_id": "20261007T190328Z-full-user-s44",
+      "scores_path": "D:\\CIRA_dataset\\datasets\\processed\\scores\\chapter7\\20261007T190328Z-full-user-s44\\tabnet.parquet",
+      "seed": 44,
+      "wall_seconds": 397.66
+    },
+    "tabnet/behaviour/45": {
+      "finished_at": "2026-10-07T19:32:24+00:00",
+      "model_version": "tabnet-chapter7-v1-430630440bdf",
+      "reference": false,
+      "run_id": "20261007T191006Z-full-user-s45",
+      "scores_path": "D:\\CIRA_dataset\\datasets\\processed\\scores\\chapter7\\20261007T191006Z-full-user-s45\\tabnet.parquet",
+      "seed": 45,
+      "wall_seconds": 1340.64
+    },
+    "tabnet/behaviour/46": {
+      "finished_at": "2026-10-07T19:39:02+00:00",
+      "model_version": "tabnet-chapter7-v1-8d402f94a3a9",
+      "reference": false,
+      "run_id": "20261007T193226Z-full-user-s46",
+      "scores_path": "D:\\CIRA_dataset\\datasets\\processed\\scores\\chapter7\\20261007T193226Z-full-user-s46\\tabnet.parquet",
+      "seed": 46,
+      "wall_seconds": 397.9
+    },
+    "tabnet/behaviour/47": {
+      "finished_at": "2026-10-07T19:51:39+00:00",
+      "model_version": "tabnet-chapter7-v1-0aefcc9929e9",
+      "reference": false,
+      "run_id": "20261007T193904Z-full-user-s47",
+      "scores_path": "D:\\CIRA_dataset\\datasets\\processed\\scores\\chapter7\\20261007T193904Z-full-user-s47\\tabnet.parquet",
+      "seed": 47,
+      "wall_seconds": 756.95
+    }
+  },
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46,
+    47
+  ],
+  "split": "user",
+  "split_seed": 42,
+  "version": "c16-seed-plan-v1"
+}

@@ -106,6 +106,12 @@ def _feature_fingerprint(path: Path) -> str:
     return hashlib.sha256(f"{path.name}|{st.st_size}|{int(st.st_mtime)}".encode()).hexdigest()[:12]
 
 
+def split_seed(args) -> int:
+    """The seed of the saved split to load: ``--split-seed`` if given, else ``--seed`` (unchanged behaviour)."""
+    value = getattr(args, "split_seed", None)
+    return int(args.seed if value is None else value)
+
+
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     root = repo_root()
     p = argparse.ArgumentParser(description="CIRA Chapter 6 baselines")
@@ -114,6 +120,8 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     p.add_argument("--split", default="user", choices=("user", "time"))
     p.add_argument("--models", default=",".join(DETECTORS), help=f"comma list from {DETECTORS}")
     p.add_argument("--seed", type=int, default=int(os.getenv("CIRA_SEED", "42")))
+    p.add_argument("--split-seed", type=int, default=None,
+                   help="seed of the saved user split to load (default: --seed); Chapter 16 seed runs use it (N78)")
     p.add_argument("--budgets", default=",".join(str(k) for k in DEFAULT_BUDGETS), help="daily top-k alert budgets")
     p.add_argument("--fractions", default=",".join(str(f) for f in DEFAULT_FRACTIONS), help="train,validation,test user fractions")
     p.add_argument("--rebuild-split", action="store_true", help="overwrite a saved split that no longer matches")
@@ -174,9 +182,9 @@ def run(args: argparse.Namespace) -> dict:
     # --- split -----------------------------------------------------------
     split_info: dict = {"mode": args.split}
     if args.split == "user":
-        split_path = Path(args.splits_dir) / f"user_split_{args.profile}_seed{args.seed}.json"
+        split_path = Path(args.splits_dir) / f"user_split_{args.profile}_seed{split_seed(args)}.json"
         assignment, meta, created = load_or_create_split(
-            split_path, users, scen, seed=args.seed, fractions=fractions, profile=args.profile, rebuild=args.rebuild_split
+            split_path, users, scen, seed=split_seed(args), fractions=fractions, profile=args.profile, rebuild=args.rebuild_split
         )
         split = rows_for_split(keys["user_id"], assignment)
         assert_user_disjoint(keys["user_id"], split)

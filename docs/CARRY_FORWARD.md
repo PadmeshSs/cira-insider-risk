@@ -86,6 +86,13 @@ How to use it when prompting a chapter:
 | N72 synthetic e2e numbers are never results | 16, 19 (reporting) |
 | N73 Chapter 15 status (RETIRED) | - |
 | N74 run ids come from app.core.run_stamp only | 16, 17, 18 |
+| N75 Chapter 16 status (RETIRED) | - |
+| N76 the test readout is pinned and written once | 17, 18, 19 (reporting) |
+| N77 the chain ends in the served XGBoost; C and D have no training seeds | 19 (reporting) |
+| N78 seed runs load the saved split through --split-seed | 16, any repeat run |
+| N79 the evaluation report is generated from the readout | 19 (reporting) |
+| N80 anything changed after the test readout is test-informed | 17, 18, 19 |
+| N81 the anomaly component is a non-strict rarity map; the CRI ties on test | 17, 18, 19 (reporting) |
 
 ---
 
@@ -1185,4 +1192,85 @@ machine through intermittent `test_ch7_runner` failures). Any new entry point (C
 Chapter 17 streaming runs) takes its stamp from `utc_run_stamp()`, never from `datetime.now()`.
 `tests/unit/test_ch15_run_stamp.py` enforces it. Chapter 16 runs many ablations back to back in one
 process, which is exactly the case this protects.
+
+## N75. Chapter 16 is PARTIALLY IMPLEMENTED until the CERT test readout exists  (from Chapter 16)
+
+RETIRED (chapter 16, `scripts/verify_chapter16.py --recompute` on the development machine: 29 PASS / 0 WARN /
+0 FAIL; unit 391, integration 93 passed with 2 expected skips, e2e 30 passed with 0 skipped; seed runs
+`experiments/chapter16_seed_runs.json`, test readout `20261010T072243Z-full-test-c16`; see
+`docs/audits/chapter_16_audit.md`).
+
+## N76. The test readout is pinned and written once; test was already read once in Chapter 8  (from Chapter 16)
+
+`experiments/chapter16_test_readout.json` is the only place Chapter 16 reads test for the record. A second
+write needs `--supersede "<reason>"`, which keeps the old readout inside the new file and writes a new runlog
+line. `chapter8_test_readout.json` read test once per model for the serving decision; the Chapter 16 readout
+checks its own test PR-AUCs against it (harness).
+
+- The best baseline is chosen on validation before test is read, and the choice table is in the readout.
+- After the readout, a change to a model, a CRI weight, a MITRE rule, the alert policy or a feature is
+  test-informed (N80). The old readout stays as it is.
+- Validation rehearsals (`--part validation`) write only under `experiments/results/chapter16/` (git-ignored).
+
+## N77. The chain ends in the served XGBoost; experiments C and D have no training seeds  (from Chapter 16, C16-1, C16-2)
+
+The Bible's chain "TabNet + CRI + MITRE" cannot be built honestly: the CRI is calibrated to the served
+model (N33) and shadow scores never feed it (N32). The chain is baselines, TabNet (shadow), XGBoost (served),
+XGBoost + CRI, XGBoost + CRI + MITRE. TabNet is compared as the supervised alternative (N23).
+
+- Experiments C and D use one served model_version. Their "seeds" are five tie-break seeds for the daily top-k and
+  a user-clustered bootstrap. Training seeds are experiments A and B only.
+- The report and the viva say "XGBoost + CRI", never "TabNet + CRI".
+- If TabNet is ever served, the CRI is recalibrated (N33), the readout is superseded, and the chain is rebuilt.
+
+## N78. Seed runs load the saved split through `--split-seed`  (from Chapter 16)
+
+In Chapters 6 to 8 `--seed` chose both the model seed and the split file name, so `--seed 43` would have built a
+different split. `--split-seed` (default: `--seed`, so every earlier run is unchanged) names the split to load.
+
+- Every Chapter 16 seed run passes `--split-seed 42` and `--no-register`; nothing is added to a registry (N21)
+  and the served pin does not move (N28).
+- The all-features XGBoost is the Chapter 6 baseline runner with `--models gbdt`, because `gbdt_candidate`
+  refuses anything but the behaviour-only serving candidate (C8-2).
+- A seed manifest is for one profile and one split seed; the runner refuses to mix them.
+- Six seeds is the smallest number at which a Wilcoxon signed-rank test can reach p < 0.05 (smallest attainable
+  p is 2 / 2^n). The readout says so when it has fewer.
+
+## N79. The evaluation report is generated from the readout only  (from Chapter 16)
+
+`app.evaluation.report.render(readout, readout_sha256)` is the only way the report is made, and
+`scripts/verify_chapter16.py` regenerates it and requires equality. This is how "no number without a logged
+run" is enforced.
+
+- Numbers in the Chapter 19 write-up come from the generated report or from the readout, with the run id.
+- The report names risk coverage's definition (C16-3) next to every coverage figure.
+- Intervals are about which users the test set holds; they do not measure training noise (seeds do).
+- Scores are ranking scores, never probabilities (N20). Scenario 3 has too few test days for a claim (N15).
+
+## N80. Anything changed after the test readout is test-informed  (from Chapter 16)
+
+Chapters 17 and 18 add production extensions and must not touch a detection path component. If one of them
+changes a model, a weight, a rule, the alert policy or a feature, the change is recorded as test-informed with
+a new version and a new hash, and the Chapter 16 readout is superseded rather than edited.
+
+- The variant `cri:no_peer_deviation+no_user_context` was found by looking at validation (N40). It is reported in
+  the readout labelled validation-informed and is not adopted by Chapter 16. Adopting it later is a new CRI
+  configuration with its own hash, recorded as informed by validation and by test.
+- The Chapter 19 write-up lists, with the readout, which design choices were fixed before test and which were not.
+
+## N81. The anomaly component is a non-strict rarity map, so the CRI ties on test  (from Chapter 16)
+
+The CRI's anomaly component counts how many validation reference scores are at or above a value
+(`app/cri/calibration.py`, `searchsorted`). It never reverses the served score's order, but test scores that fall
+between the same two reference points get the same value. On the full test part `cri:anomaly_only` has 32,866
+distinct values where the served anomaly score has 63,824, and its PR-AUC differs from the served score's by
+3.28e-03. On validation, where the reference is fitted on the same rows, the difference is exactly 0.
+
+- The Chapter 16 harness check is therefore order preservation (no reversal), not equal PR-AUC. The readout was
+  superseded once for that check alone; no model, weight, rule or policy changed (N80).
+- Whether these ties explain part of the CRI's PR-AUC gap to the anomaly score (0.632 against 0.827 on test) was not
+  tested. Do not state it as a cause. Any change to the rarity map is a new CRI configuration with its own hash,
+  informed by test (N80).
+- Anything that compares the CRI with the anomaly score on rows outside the validation reference should say that the
+  CRI has coarser resolution there.
 
