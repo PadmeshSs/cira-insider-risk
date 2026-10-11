@@ -93,6 +93,12 @@ How to use it when prompting a chapter:
 | N79 the evaluation report is generated from the readout | 19 (reporting) |
 | N80 anything changed after the test readout is test-informed | 17, 18, 19 |
 | N81 the anomaly component is a non-strict rarity map; the CRI ties on test | 17, 18, 19 (reporting) |
+| N82 Chapter 19 status | 19 |
+| N83 the status table is the claim; it follows the evidence | 17, 18, 19, any later change |
+| N84 the release tag pins the submission | any change after the tag |
+| N85 governing documents are reference copies, never edited to fit the code | every chapter |
+| N86 the Docker images are not the verified run path | 18, 19 (reporting) |
+| N87 reproduction uses the lock file | any rerun, 18 |
 
 ---
 
@@ -1274,3 +1280,72 @@ distinct values where the served anomaly score has 63,824, and its PR-AUC differ
 - Anything that compares the CRI with the anomaly score on rows outside the validation reference should say that the
   CRI has coarser resolution there.
 
+## N82. Chapter 19 is PARTIALLY IMPLEMENTED until the final verification passes  (from Chapter 19)
+
+Chapter 19 becomes IMPLEMENTED when, on the development machine:
+
+- `python scripts/verify_chapter19.py --browser --cert-username <analyst> --cert-database-url <url> --recompute`
+  runs with 0 FAIL, which includes a full Chapter 15 run (e2e, browser, CERT API and dashboard) and the Chapter 16
+  readout check with the rankings recomputed;
+- `--finalize <stamp>` has written that run into `docs/audits/chapter_19_audit.md`, README row 19 and this note,
+  and every WARN in the audit has a sentence;
+- the commit carries an annotated `v*` tag and `--release` passes on it.
+
+Until then README row 19 says PARTIALLY IMPLEMENTED (the verifier fails a README that claims more).
+
+## N83. The component status table is the claim; it follows the evidence  (from Chapter 19)
+
+`docs/COMPONENT_STATUS.md` is what the report and viva quote for "what was built". Each row has one of the Bible's
+five statuses and names the file that backs it; the verifier fails a claimed row whose evidence file is missing,
+a TWOS row that differs from `TWOS_RELEASE_STATUS`, and a production extension marked IMPLEMENTED with no code
+in the repository behind it.
+
+- A status changes only with its evidence in the same commit, and `scripts/verify_chapter19.py` is re-run.
+- The report copies statuses from this table, never from memory. "Real-time", "streaming", "RBAC" and "CI" are
+  not claims this repository supports (Chapters 17-18 scoped out).
+- TWOS stays PLANNED until the data is in hand (Bible Chapter 3). If it arrives after the tag, that is new work
+  with its own chapter entry, not an edit of this table.
+
+## N84. The release tag pins the submission  (from Chapter 19)
+
+The annotated `v1.0.0` tag is the state the report describes. Run ids, hashes and verifier stamps in the report
+must exist at that tag.
+
+- Any commit after the tag that touches code, a pinned file under `experiments/` or a status needs a new
+  `scripts/verify_chapter19.py` run and a new tag (`v1.0.1`, ...); the old tag is never moved.
+- A change to a model, weight, rule, policy or feature after the tag is also test-informed (N80) and supersedes
+  the Chapter 16 readout rather than editing it.
+- Chapters 17-18, if ever started, branch from the tag and keep the detection path untouched (N80).
+
+## N85. The governing documents are reference copies  (from Chapter 19)
+
+`CIRA_FINAL_ARCHITECTURE.md`, `CIRA_IMPLEMENTATION_BIBLE.md`, `CLAUDE.md` and the HCEA PDF are in the repository
+so that every "Bible says" and "§45 item" in the docs can be checked by the reader. They describe the plan.
+Where the build departs from them (XGBoost served, C8-1; the chain in N77; the structure in `docs/STRUCTURE.md`),
+the departure is recorded where it was made; the documents are not edited to agree with the code.
+
+- If a governing document has a newer local version than the one committed, replace the file whole and say so in
+  the commit message; do not merge edits into it.
+
+## N86. The Docker images are not the verified run path  (from Chapter 19)
+
+`docker/backend.Dockerfile` copies only `app/`, `alembic/`, `alembic.ini` and the requirements. In the image the repository
+root resolves to `/`, so the serving decision (`experiments/chapter8_serving_decision.json`) and the model
+registry are not there, and nothing in `docker-compose.yml` mounts them. The postgres service is the database
+every chapter from 12 on used; the backend and frontend services were not part of any verification.
+
+- The verified run path is local: uvicorn for the API, Vite for the dashboard, PostgreSQL from compose.
+- The report says "PostgreSQL runs in Docker", not "CIRA runs in Docker". Making the images serve is Chapter 18
+  (Docker productionization).
+
+## N87. Reproduction uses the lock file  (from Chapter 19)
+
+`backend/requirements.txt` names libraries without versions. The registry's XGBoost and TabNet models, the
+TreeSHAP additivity check (N47) and the pinned readouts were produced with one set of versions, recorded in
+`backend/requirements.lock.txt` (`pip freeze` of the environment that produced them, with the Python version on
+its first line).
+
+- Every reproduction instruction installs from the lock file.
+- Upgrading a library that touches a model, SHAP or the data path is a new environment: the affected verifiers
+  are re-run and the result recorded, and a model that no longer loads is an error (N21), not a reason to retrain
+  quietly.

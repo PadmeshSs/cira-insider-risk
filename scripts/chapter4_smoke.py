@@ -1,17 +1,21 @@
 """Run the Chapter 4 acceptance check against a CERT sample.
 
 Usage:
-    PYTHONPATH=backend python backend/scripts/chapter4_smoke.py \
+    python scripts/chapter4_smoke.py \
         --cert-root datasets/raw/cert_r4.2 \
         --rows-per-domain 25
 """
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
-from app.ingestion.cert_loader import load_cert_sample
-from app.preprocessing.normalize import normalize_and_persist
+# Runnable from the repository root without PYTHONPATH, like the other scripts.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
+
+from app.ingestion.cert_loader import load_cert_sample  # noqa: E402
+from app.preprocessing.normalize import normalize_and_persist  # noqa: E402
 
 
 def main() -> int:

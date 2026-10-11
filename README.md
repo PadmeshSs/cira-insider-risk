@@ -1,10 +1,55 @@
 # CIRA: Context-Aware Insider Risk Analytics
 
-Final-year project. Behavioural insider-risk detection on CERT r4.2 with
-TabNet, contextual risk scoring, MITRE ATT&CK enrichment and a SOC dashboard.
+Final-year project. Behavioural insider-risk detection on CERT r4.2: a behaviour-only XGBoost scores every
+user-day, a contextual risk index (CRI) and MITRE ATT&CK context sit beside that score, TreeSHAP explains it,
+correlated alerts go to PostgreSQL, and a SOC dashboard reads them through a FastAPI service.
 
-Governing documents: `CIRA_FINAL_ARCHITECTURE.md` (architecture),
-`CIRA_IMPLEMENTATION_BIBLE.md` (sequencing), HCEA v1.0 (execution budget).
+TabNet was built, trained and evaluated as the Bible planned, and it runs as the shadow model. A rule fixed
+before any test number (`c8-serving-rule-v1`) chose XGBoost to serve because it ranked higher on validation
+(deviation C8-1, notes N28 and N71). TabNet's scores never feed the CRI, the alerts or the explanations.
+
+Governing documents, kept in the repository as the reference the code was built against:
+`CIRA_FINAL_ARCHITECTURE.md` (architecture), `CIRA_IMPLEMENTATION_BIBLE.md` (sequencing), `CLAUDE.md` (coding
+rules) and `docs/governance/CIRA_Hardware_Constrained_Execution_Addendum_v1_0.pdf` (HCEA v1.0, execution
+budget). Where the code departs from them, the departure is recorded in the chapter audits and in
+`docs/STRUCTURE.md`; the documents themselves are not edited to match the code (N85).
+
+Component by component, with the evidence for each status: `docs/COMPONENT_STATUS.md`.
+
+## Setup
+
+Requirements: Python 3.12, Node 22, Docker (PostgreSQL 17 through `docker-compose.yml`, and testcontainers
+for the integration tests), and the CERT r4.2 release. The reported runs used the full profile on one
+workstation under the HCEA budget; `CIRA_MAX_RSS_GB` and `CIRA_MAX_WORKERS` in `.env` set the limits.
+
+1. Get the data. CERT r4.2 and its answer files come from Carnegie Mellon's KiltHub, DOI
+   `10.1184/R1/12841247.v1` (no request form). Extract only r4.2 to the folder `CERT_RAW_DIR` names and the
+   r4.2 answers to `CERT_GROUND_TRUTH_DIR`. `docs/datasets/cert.md` lists the expected files and counts.
+2. Configure. `cp .env.example .env`, then set `POSTGRES_PASSWORD`, `DATABASE_URL`, the three `CERT_*_DIR`
+   paths and a real `SECRET_KEY` (`python -c "import secrets; print(secrets.token_urlsafe(48))"`).
+3. Python environment, from the repository root:
+
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate                         # Windows: .venv\Scripts\activate
+   pip install -r backend/requirements.lock.txt     # the exact versions behind the reported runs (N87)
+   ```
+
+   `backend/requirements.txt` lists the same libraries without versions; use it only to start a new
+   environment on purpose, knowing the registry's models were saved with the locked versions.
+4. Database: `docker compose up -d postgres`, then `cd backend && alembic upgrade head`.
+5. Dashboard: `cd frontend && npm ci`.
+
+What a fresh clone does not contain. CERT data, the processed outputs (`CERT_PROCESSED_DIR`) and the model
+registry (`models/saved_models/`) are gitignored: they are large, and CERT is meant to be downloaded
+from KiltHub, not from this repository. The committed files under `experiments/` (reference runs, the serving decision, calibrations and
+readouts) describe the runs on the development machine and pin their artifacts by sha256. Re-running
+Chapters 5 to 12 from scratch creates new run ids and registry versions; the pinned files then name
+artifacts you do not have, and each pin has to be redone with its `--supersede` option, with a reason.
+
+The Docker images in `docker-compose.yml` are not the verified run path: the backend image copies only
+`app/` and `alembic/`, so it has no serving decision or model registry to load (N86). Run the API with
+uvicorn and the dashboard with Vite as below.
 
 ## Status
 
@@ -30,10 +75,11 @@ passes its checks.
 | 14 | React + TypeScript SOC dashboard: eight views over the Chapter 13 API | IMPLEMENTED; checked against alert run 20261001T062628Z-full-alerts by Chapter 15 |
 | 15 | End-to-end validation: raw CSV to PostgreSQL to API to dashboard, §36 failure modes, §45 acceptance | IMPLEMENTED; verifier 27 PASS / 0 FAIL with the CERT API and dashboard checks |
 | 16 | Evaluation and ablations: seeds, bootstrap intervals, CRI and MITRE test readout, alert queue on test | IMPLEMENTED; verifier 29 PASS / 0 WARN / 0 FAIL with the CERT seed runs and the pinned test readout |
-| 17-18 | Kafka, Redis, Celery, SSE, OpenSearch, observability, K8s | NOT IMPLEMENTED (production extensions) |
+| 17-18 | Kafka, Redis, Celery, SSE, OpenSearch, observability, K8s, RBAC hardening, CI/CD | NOT IMPLEMENTED (PRODUCTION EXTENSION, deliberately scoped out) |
+| 19 | Finalization: governing documents, component status table, structure, secrets scan, lock file, final regression run, release tag | PARTIALLY IMPLEMENTED until `scripts/verify_chapter19.py` passes and the audit names the run (N82) |
 
 See `docs/audits/chapter_1_5_audit.md`, `docs/audits/chapter_6_audit.md` and `docs/audits/chapter_7_audit.md`, `docs/audits/chapter_8_audit.md`, `docs/audits/chapter_9_audit.md` and
-`docs/audits/chapter_10_audit.md`, `docs/audits/chapter_11_audit.md`, `docs/audits/chapter_12_audit.md`, `docs/audits/chapter_13_audit.md`, `docs/audits/chapter_15_audit.md` and `docs/audits/chapter_16_audit.md` for the chapter reviews, and
+`docs/audits/chapter_10_audit.md`, `docs/audits/chapter_11_audit.md`, `docs/audits/chapter_12_audit.md`, `docs/audits/chapter_13_audit.md`, `docs/audits/chapter_14_audit.md`, `docs/audits/chapter_15_audit.md`, `docs/audits/chapter_16_audit.md` and `docs/audits/chapter_19_audit.md` for the chapter reviews, and
 `docs/CARRY_FORWARD.md` for the rules every later chapter must follow.
 Chapter 6 is described in `docs/chapters/chapter_6_baselines.md`, Chapter 7
 in `docs/chapters/chapter_7_tabnet.md`, Chapter 8 in
@@ -41,11 +87,26 @@ in `docs/chapters/chapter_7_tabnet.md`, Chapter 8 in
 Chapter 10 in `docs/chapters/chapter_10_mitre.md`, Chapter 11 in
 `docs/chapters/chapter_11_explainability.md`, Chapter 12 in `docs/chapters/chapter_12_alerts.md`,
 Chapter 13 in `docs/chapters/chapter_13_api.md`, Chapter 14 in `docs/chapters/chapter_14_dashboard.md`
-(run steps in `frontend/README.md`), Chapter 15 in `docs/chapters/chapter_15_e2e.md`, Chapter 16 in `docs/chapters/chapter_16_evaluation.md`.
+(run steps in `frontend/README.md`), Chapter 15 in `docs/chapters/chapter_15_e2e.md`, Chapter 16 in `docs/chapters/chapter_16_evaluation.md`, Chapter 19 in `docs/chapters/chapter_19_finalization.md`.
 
 What the dashboard shows: the stored, batch-scored decisions over the CERT r4.2 history (2010-2011),
 read from PostgreSQL through the API. It is not a live feed; the only computation on demand is
 "Re-score this day", which is never stored. Live alert delivery is Chapter 17.
+
+## Running Chapters 3 and 4
+
+Ingestion (Chapter 3) and normalization (Chapter 4) are libraries that Chapter 5's Stage 0 calls; they have
+no batch command of their own. Three checks confirm the raw data and the two stages before the long run,
+from the repository root:
+
+```bash
+python scripts/cert_inventory.py  --root "$CERT_RAW_DIR"                 # row counts per CERT file and LDAP month
+python scripts/cert_smoke_test.py --root "$CERT_RAW_DIR" --rows 10       # canonical-contract check per domain
+python scripts/chapter4_smoke.py  --cert-root "$CERT_RAW_DIR" --rows-per-domain 25   # normalization + rejected sink
+```
+
+The ground-truth answers are read only by `backend/app/ingestion/ground_truth.py` and the label scripts;
+`test_ground_truth_separation.py` keeps them out of the feature path (N5).
 
 ## Running Chapter 5
 
@@ -258,6 +319,19 @@ Lists are capped at 200 rows per page, and nothing computed over HTTP is
 stored. `/health` gains `auth` and `routes` blocks. Design, routes, failure
 modes and what makes the chapter IMPLEMENTED: `docs/chapters/chapter_13_api.md`.
 
+## Running Chapter 14
+
+The dashboard reads the Chapter 13 API and computes nothing it displays (N69). With the API running on
+port 8000 and `CORS_ORIGINS` allowing the dashboard origin:
+
+```bash
+cd frontend
+npm run dev        # http://localhost:5173, sign in with an analyst created by app.services.accounts
+```
+
+Views, the API call behind each, and the frontend tests: `frontend/README.md`. Design:
+`docs/chapters/chapter_14_dashboard.md`.
+
 ## Running Chapter 15
 
 Chapter 15 rebuilds the whole chain from raw CSV on every run and checks one raw event at every hop:
@@ -319,3 +393,21 @@ python -m app.evaluation.ablation --profile full --part test       # the pinned 
 python -m app.evaluation.report                                    # experiments/chapter16_evaluation_report.md
 cd .. && python scripts/verify_chapter16.py --recompute
 ```
+
+## Chapter 19: final verification and release
+
+One command checks everything the repository says about itself and re-runs the regression gate one last
+time. From the repository root, with PostgreSQL up, `CIRA_E2E_DATABASE_URL` and `CERT_PROCESSED_DIR` set,
+and the CERT API on port 8000:
+
+```bash
+python scripts/verify_chapter19.py --browser --cert-username <analyst> --cert-database-url "$DATABASE_URL" --recompute
+python scripts/verify_chapter19.py --finalize <stamp printed above>    # writes the run into the audit, README, N82
+# replace every `EXPLAIN:` marker in docs/audits/chapter_19_audit.md with a sentence
+git add -A && git commit -m "Chapter 19: final verification"
+git tag -a v1.0.0 -m "CIRA FYP submission"
+python scripts/verify_chapter19.py --release                           # tag, clean tree, audit, N82
+git push && git push --tags
+```
+
+What it checks and why: `docs/chapters/chapter_19_finalization.md`; the record: `docs/audits/chapter_19_audit.md`.
