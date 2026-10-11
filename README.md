@@ -397,8 +397,16 @@ cd .. && python scripts/verify_chapter16.py --recompute
 ## Chapter 19: final verification and release
 
 One command checks everything the repository says about itself and re-runs the regression gate one last
-time. From the repository root, with PostgreSQL up, `CIRA_E2E_DATABASE_URL` and `CERT_PROCESSED_DIR` set,
-and the CERT API on port 8000:
+time. It needs three things running or set first, exactly as Chapter 15 did:
+
+- only the `postgres` compose service up (a running `backend` container would answer on port 8000 instead of
+  the API, N86);
+- the CERT API on port 8000, started from `backend/` with the dashboard's test origin allowed, because the
+  CERT browser check signs in from Vite on 127.0.0.1:5174:
+  `CORS_ORIGINS="http://localhost:5173,http://127.0.0.1:5174" uvicorn app.main:app --port 8000`
+  (PowerShell: `$env:CORS_ORIGINS = "http://localhost:5173,http://127.0.0.1:5174"` first);
+- `CIRA_E2E_DATABASE_URL` (the compose server's `postgres` database) and `CERT_PROCESSED_DIR` in the shell
+  that runs the verifier.
 
 ```bash
 python scripts/verify_chapter19.py --browser --cert-username <analyst> --cert-database-url "$DATABASE_URL" --recompute

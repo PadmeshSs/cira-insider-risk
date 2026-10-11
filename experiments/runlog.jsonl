@@ -164,3 +164,7 @@
 {"stage": "chapter19_verification", "stamp": "20261011T194645Z", "counts": {"PASS": 38, "WARN": 1, "FAIL": 4}, "flags": {"browser": true, "cert": true, "recompute": true, "skip_regression": false}, "ch15_stamp": "20261011T194647Z"}
 {"stage": "chapter19_verification", "stamp": "20261011T200418Z", "counts": {"PASS": 33, "WARN": 1, "FAIL": 5}, "flags": {"browser": true, "cert": true, "recompute": true, "skip_regression": false}, "ch15_stamp": null}
 {"stage": "chapter19_verification", "stamp": "20261011T200539Z", "counts": {"PASS": 33, "WARN": 1, "FAIL": 5}, "flags": {"browser": true, "cert": true, "recompute": true, "skip_regression": false}, "ch15_stamp": null}
+{"stage": "chapter13_verification", "alert_run_id": "20261001T062628Z-full-alerts", "policy_hash": "21cd9391fd48", "served_model": "gbdt-chapter8-v1-077a3dae6cee", "risk_score_seconds": {"median": 0.04383299999972223, "max": 0.058148899999650894, "n": 10}, "database_checked": true, "pass": 28, "warn": 0, "fail": 0}
+{"stage": "chapter15_verification", "stamp": "20261011T200813Z", "counts": {"PASS": 24, "WARN": 0, "FAIL": 4}, "browser": true, "cert": true, "wall_seconds": 368.8}
+{"stage": "chapter16_verification", "stamp": "20261011T201422Z", "PASS": 23, "WARN": 0, "FAIL": 0, "recompute": true}
+{"stage": "chapter19_verification", "stamp": "20261011T200810Z", "counts": {"PASS": 40, "WARN": 1, "FAIL": 2}, "flags": {"browser": true, "cert": true, "recompute": true, "skip_regression": false}, "ch15_stamp": "20261011T200813Z"}

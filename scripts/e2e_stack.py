@@ -38,8 +38,12 @@ def build(args) -> int:
     if not os.getenv("CIRA_E2E_DATABASE_URL"):
         print("note: without CIRA_E2E_DATABASE_URL the database is a testcontainers container that stops when this "
               "command ends, so `serve` will not find it", file=sys.stderr)
+    world = E2E_DIR / "world"
+    if world.exists():                          # left by a build that stopped before writing the manifest
+        print(f"[e2e] removing {world} left by an interrupted build", file=sys.stderr)
+        shutil.rmtree(world)
     try:
-        stack = ch15_stack.build_stack(E2E_DIR / "world")
+        stack = ch15_stack.build_stack(world)
     except ch15_stack.StackUnavailable as exc:
         print(f"cannot build the stack: {exc}", file=sys.stderr)
         return 3
