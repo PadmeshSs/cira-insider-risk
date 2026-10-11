@@ -93,7 +93,7 @@ How to use it when prompting a chapter:
 | N79 the evaluation report is generated from the readout | 19 (reporting) |
 | N80 anything changed after the test readout is test-informed | 17, 18, 19 |
 | N81 the anomaly component is a non-strict rarity map; the CRI ties on test | 17, 18, 19 (reporting) |
-| N82 Chapter 19 status | 19 |
+| N82 Chapter 19 status (RETIRED) | - |
 | N83 the status table is the claim; it follows the evidence | 17, 18, 19, any later change |
 | N84 the release tag pins the submission | any change after the tag |
 | N85 governing documents are reference copies, never edited to fit the code | every chapter |
@@ -1281,6 +1281,8 @@ distinct values where the served anomaly score has 63,824, and its PR-AUC differ
   CRI has coarser resolution there.
 
 ## N82. Chapter 19 is PARTIALLY IMPLEMENTED until the final verification passes  (from Chapter 19)
+
+RETIRED (chapter 19, `scripts/verify_chapter19.py` run `20261011T202114Z`: 42 PASS / 1 WARN / 0 FAIL; see `docs/audits/chapter_19_audit.md`).
 
 Chapter 19 becomes IMPLEMENTED when, on the development machine:
 

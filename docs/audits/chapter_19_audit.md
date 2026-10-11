@@ -10,7 +10,25 @@ includes a full `scripts/verify_chapter15.py --browser` run with the CERT API an
 
 <!-- ch19-result:begin -->
 
-Not run yet. Chapter 19 is PARTIALLY IMPLEMENTED (N82).
+Result: **42 PASS, 1 WARN, 0 FAIL**, verification run `20261011T202114Z` (`scripts/verify_chapter19.py`, flags recorded in the runlog line: {"browser": true, "cert": true, "recompute": true, "skip_regression": false}).
+
+Chapter 15 run inside it: `20261011T202117Z`.
+
+WARN rows, each explained:
+
+- secrets: findings already in history are acknowledged in the audit (710dd89 backend/alembic.ini: database password (history not rewritten; the audit says what was done)). Accepted: the password in that commit no longer opens
+  the database, and history is not rewritten because the audits cite commit ids; see "Secrets found in history".
+
+What the run covered, copied from its console output:
+
+| Part | Result |
+|---|---|
+| Repository checks (preflight, governance, readme, status, structure, secrets, lockfile, notes) | all PASS but the one WARN above |
+| Lock file header | Python 3.13.3, Windows-11-10.0.26300-SP0, recorded 2026-10-12; xgboost 3.4.1, torch 2.13.0, pytorch-tabnet 4.1.0, shap 0.52.0 |
+| Chapter 15, run `20261011T202117Z` | 28 PASS, 0 WARN, 0 FAIL in 374 s: unit 391 passed, integration 93 passed (2 skipped) on PostgreSQL, e2e 30 passed in 38.5 s, frontend lint, build and Vitest, Playwright click-through 10/10, CERT sign-in, `verify_chapter13` on CERT 28 PASS / 0 FAIL, CERT dashboard check, all sixteen §45 items |
+| Chapter 16, run `20261011T202731Z` | 23 PASS, 0 WARN, 0 FAIL with `--recompute`: 14 rankings recomputed from the stored scores, worst PR-AUC difference 0; the report equals its regeneration byte for byte |
+
+Chapter 19 is IMPLEMENTED once the release commit carries the `v1.0.0` tag and `--release` passes on it.
 
 <!-- ch19-result:end -->
 
@@ -43,7 +61,7 @@ instead of a FAIL; the WARN still has to be explained in the result block.
   development machine (on every interface, Docker's default), so it matters more than a localhost-only value would.
   Action: change the local database password (and `POSTGRES_PASSWORD` and `DATABASE_URL` in `.env`) so the
   value in history opens nothing. History is not rewritten: a force-push would change every commit id the audits
-  cite. EXPLAIN: The password in that commit no longer opens the database; it was changed on 2026-10-11.
+  cite. Done: The password in that commit no longer opens the database; it was changed on 2026-10-11.
 
 Two other matches are not secrets: `eebb772 ch12_evidence/...` and `eebb772 experiments/runlog.jsonl` hold database
 URLs as SQLAlchemy prints them, with the password replaced by `***`. The verifier treats an all-asterisk password as
@@ -51,14 +69,15 @@ masked.
 
 ## Checklist
 
-- [ ] Final e2e run passes: the Chapter 15 run named in the result block, with browser and CERT checks.
-- [ ] `README.md` is complete, not a placeholder: verifier section `readme`.
-- [ ] Component status table is accurate and matches the repository: verifier section `status`.
-- [ ] No secrets in git history: verifier section `secrets` (`git log -p --all`, every commit, every branch).
-- [ ] Structure matches §2 or the differences are documented: verifier section `structure`.
+- [x] Final e2e run passes: the Chapter 15 run named in the result block, with browser and CERT checks.
+- [x] `README.md` is complete, not a placeholder: verifier section `readme`.
+- [x] Component status table is accurate and matches the repository: verifier section `status`.
+- [x] No secrets in git history: verifier section `secrets` (`git log -p --all`, every commit, every branch).
+- [x] Structure matches §2 or the differences are documented: verifier section `structure`.
 - [ ] Release commit tagged: `python scripts/verify_chapter19.py --release`.
 
-Tick each box only after the run in the result block shows it.
+Ticked from run `20261011T202114Z`. The last box is ticked by the release check itself: it passes only on a
+tagged commit.
 
 ## Release
 

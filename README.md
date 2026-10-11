@@ -76,7 +76,7 @@ passes its checks.
 | 15 | End-to-end validation: raw CSV to PostgreSQL to API to dashboard, §36 failure modes, §45 acceptance | IMPLEMENTED; verifier 27 PASS / 0 FAIL with the CERT API and dashboard checks |
 | 16 | Evaluation and ablations: seeds, bootstrap intervals, CRI and MITRE test readout, alert queue on test | IMPLEMENTED; verifier 29 PASS / 0 WARN / 0 FAIL with the CERT seed runs and the pinned test readout |
 | 17-18 | Kafka, Redis, Celery, SSE, OpenSearch, observability, K8s, RBAC hardening, CI/CD | NOT IMPLEMENTED (PRODUCTION EXTENSION, deliberately scoped out) |
-| 19 | Finalization: governing documents, component status table, structure, secrets scan, lock file, final regression run, release tag | PARTIALLY IMPLEMENTED until `scripts/verify_chapter19.py` passes and the audit names the run (N82) |
+| 19 | Finalization: governing documents, component status table, structure, secrets scan, lock file, final regression run, release tag | IMPLEMENTED; verifier run 20261011T202114Z, 42 PASS / 1 WARN / 0 FAIL |
 
 See `docs/audits/chapter_1_5_audit.md`, `docs/audits/chapter_6_audit.md` and `docs/audits/chapter_7_audit.md`, `docs/audits/chapter_8_audit.md`, `docs/audits/chapter_9_audit.md` and
 `docs/audits/chapter_10_audit.md`, `docs/audits/chapter_11_audit.md`, `docs/audits/chapter_12_audit.md`, `docs/audits/chapter_13_audit.md`, `docs/audits/chapter_14_audit.md`, `docs/audits/chapter_15_audit.md`, `docs/audits/chapter_16_audit.md` and `docs/audits/chapter_19_audit.md` for the chapter reviews, and
