@@ -61,14 +61,14 @@ export function FeatureVectorPanel({ fv, highlight }: { fv: FeatureVector; highl
               {values.map((v) => {
                 const c = highlight.get(v.column)
                 return (
-                  <li key={v.column} className={`grid grid-cols-[1fr_auto] items-center gap-3 border-b border-row-line px-5 py-1.5 ${c !== undefined ? 'bg-cyan/[0.05]' : ''}`}>
+                  <li key={v.column} className={`grid grid-cols-[1fr_auto] items-center gap-3 border-b border-row-line px-5 py-1.5 ${c !== undefined ? 'bg-accent/[0.05]' : ''}`}>
                     <span className="flex min-w-0 flex-col leading-tight">
                       <span className="truncate text-[13px] text-ink" title={v.label}>{v.label}</span>
                       <span className="t-code-sm truncate text-ink-faint">{v.column}</span>
                     </span>
                     <span className="flex items-center gap-2">
                       {c !== undefined && (
-                        <Tag tone={c > 0 ? 'cyan' : 'neutral'} title="TreeSHAP contribution of this column on this day, in log-odds">
+                        <Tag tone={c > 0 ? 'accent' : 'neutral'} title="TreeSHAP contribution of this column on this day, in log-odds">
                           {c > 0 ? '+' : ''}{c.toFixed(2)}
                         </Tag>
                       )}

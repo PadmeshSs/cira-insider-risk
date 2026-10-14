@@ -4,54 +4,71 @@
 
 @import 'tailwindcss';
 
-/* Tokens from DESIGN.md ("Tactical Threat Surface"). The prose values are
-   used where they are more specific than the Material token table. */
+/* "Black ice" tokens. Black surfaces in neutral greys (no blue tint), square
+   corners everywhere, and neon only where it carries state: severity, service
+   status, selection and provenance. */
 @theme {
-  --font-sans: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
+  --font-sans: 'Chakra Petch', 'Bahnschrift', 'DIN Alternate', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SFMono-Regular', 'Consolas', monospace;
 
-  --color-canvas: #0b0f17;
-  --color-ground: #0d1117;
-  --color-l1: #151b28;
-  --color-l2: #1e2638;
-  --color-l3: #252e42;
-  --color-row-alt: #111622;
-  --color-row-line: #1a2230;
-  --color-chip: #161d2b;
-  --color-line: #222b38;
-  --color-line-strong: #2a3649;
-  --color-line-float: #3b475d;
+  /* Surfaces: pure black canvas, neutral grey layers on top. */
+  --color-canvas: #000000;
+  --color-ground: #050505;
+  --color-l1: #0a0a0a;
+  --color-l2: #151515;
+  --color-l3: #1f1f1f;
+  --color-row-alt: #070707;
+  --color-row-line: #1a1a1a;
+  --color-chip: #0f0f0f;
+  --color-line: #242424;
+  --color-line-strong: #333333;
+  --color-line-float: #4a4a4a;
 
-  --color-ink: #e2e8f0;
-  --color-ink-strong: #f1f5f9;
-  --color-ink-muted: #94a3b8;
-  --color-ink-faint: #64748b;
-  --color-ink-ghost: #475569;
+  --color-ink: #e6e6e6;
+  --color-ink-strong: #ffffff;
+  --color-ink-muted: #a3a3a3;
+  --color-ink-faint: #737373;
+  --color-ink-ghost: #525252;
 
-  --color-cyan: #38bdf8;
-  --color-indigo: #818cf8;
+  /* Interface accent (selection, focus, primary action) and the second
+     provenance hue. */
+  --color-accent: #00ff9c;
+  --color-violet: #b266ff;
 
-  /* Provenance hues: who produced a number. Model = cyan, CRI context =
-     indigo, ATT&CK = fuchsia. Never used for severity. */
-  --color-prov-model: #38bdf8;
-  --color-prov-context: #818cf8;
-  --color-prov-attack: #e879f9;
+  /* Service state: the dot in the top bar, the readiness lists. */
+  --color-state-ok: #00ff9c;
+  --color-state-warn: #ffe600;
+  --color-state-down: #ff2e5b;
 
-  --color-sev-low: #14b8a6;
-  --color-sev-low-tint: #0f2e2c;
-  --color-sev-low-text: #5eead4;
-  --color-sev-medium: #f59e0b;
-  --color-sev-medium-tint: #332408;
-  --color-sev-medium-text: #fcd34d;
-  --color-sev-high: #f97316;
-  --color-sev-high-tint: #3a1a0b;
-  --color-sev-high-text: #fdba74;
-  --color-sev-critical: #ef4444;
-  --color-sev-critical-tint: #3f1414;
-  --color-sev-critical-text: #fca5a5;
+  /* Provenance hues: who produced a number. Model = neon green, CRI context =
+     violet, ATT&CK = magenta. Never used for severity. */
+  --color-prov-model: #00ff9c;
+  --color-prov-context: #b266ff;
+  --color-prov-attack: #ff2bd6;
 
-  --radius-sm: 0.25rem;
-  --radius-panel: 0.5rem;
+  --color-sev-low: #00e5ff;
+  --color-sev-low-tint: #001f24;
+  --color-sev-low-text: #7af3ff;
+  --color-sev-medium: #ffe600;
+  --color-sev-medium-tint: #1f1c00;
+  --color-sev-medium-text: #fff27a;
+  --color-sev-high: #ff8a00;
+  --color-sev-high-tint: #241300;
+  --color-sev-high-text: #ffb766;
+  --color-sev-critical: #ff2e5b;
+  --color-sev-critical-tint: #26040c;
+  --color-sev-critical-text: #ff8aa3;
+
+  /* Square corners: every rounded-* utility resolves to 0. */
+  --radius-xs: 0;
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
+  --radius-2xl: 0;
+  --radius-3xl: 0;
+  --radius-4xl: 0;
+  --radius-panel: 0;
 }
 
 @layer base {
@@ -68,17 +85,24 @@
     line-height: 1.375rem;
     -webkit-font-smoothing: antialiased;
   }
+  /* Sharp edges on everything, including MUI drawers and tooltips. */
+  *,
+  *::before,
+  *::after {
+    border-radius: 0 !important;
+  }
   ::selection {
-    background: rgba(56, 189, 248, 0.3);
+    background: rgba(0, 255, 156, 0.28);
+    color: #ffffff;
   }
   :focus-visible {
-    outline: 1px solid var(--color-cyan);
-    outline-offset: 0;
-    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25);
+    outline: 1px solid var(--color-accent);
+    outline-offset: 1px;
+    box-shadow: 0 0 0 3px rgba(0, 255, 156, 0.18);
   }
   * {
     scrollbar-width: thin;
-    scrollbar-color: #2a3649 transparent;
+    scrollbar-color: #333333 transparent;
   }
   @media (prefers-reduced-motion: reduce) {
     *,
@@ -91,24 +115,24 @@
 }
 
 @layer components {
-  /* Type scale: readable first. Body 14/22, small 13/20, labels 12/16 sentence case. */
+  /* Type scale. Chakra Petch's squared letterforms carry the headings; long
+     numbers, ids and codes stay in JetBrains Mono. */
   .t-headline-xl {
-    font-size: 1.625rem;
-    line-height: 2.125rem;
+    font-size: 1.75rem;
+    line-height: 2.25rem;
     font-weight: 600;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.01em;
   }
   .t-headline-lg {
-    font-size: 1.25rem;
+    font-size: 1.3125rem;
     line-height: 1.75rem;
     font-weight: 600;
-    letter-spacing: -0.015em;
+    letter-spacing: -0.005em;
   }
   .t-headline-sm {
     font-size: 1rem;
     line-height: 1.5rem;
     font-weight: 600;
-    letter-spacing: -0.01em;
   }
   .t-body-sm {
     font-size: 0.8125rem;
@@ -136,20 +160,22 @@
     color: var(--color-ink-muted);
   }
   .t-metric {
-    font-family: var(--font-sans);
-    font-size: 1.875rem;
-    line-height: 2.25rem;
+    font-family: var(--font-mono);
+    font-size: 2rem;
+    line-height: 2.375rem;
     font-weight: 600;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.03em;
     font-variant-numeric: tabular-nums;
   }
 
+  /* Panels: flat black slab, hairline frame. The head carries a short accent
+     tick on its left edge so every section reads as a terminal pane. */
   .panel {
     background: var(--color-l1);
     border: 1px solid var(--color-line);
-    border-radius: 10px;
   }
   .panel-head {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 0.75rem;
@@ -157,8 +183,17 @@
     padding: 0.875rem 1.25rem;
     border-bottom: 1px solid var(--color-line);
   }
+  .panel-head::before {
+    content: '';
+    position: absolute;
+    left: -1px;
+    top: -1px;
+    width: 2px;
+    height: 1.25rem;
+    background: var(--color-accent);
+  }
 
-  /* Data tables: 56px rows, generous cell padding, dividers instead of zebra stripes. */
+  /* Data tables: 56px rows, mono column heads, dividers instead of stripes. */
   .grid-table {
     width: 100%;
     border-collapse: separate;
@@ -170,12 +205,14 @@
     z-index: 1;
     height: 42px;
     padding: 0 1rem;
-    background: var(--color-l1);
-    border-bottom: 1px solid var(--color-line);
+    background: var(--color-ground);
+    border-bottom: 1px solid var(--color-line-strong);
     text-align: left;
     white-space: nowrap;
-    font-size: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
     font-weight: 500;
+    letter-spacing: 0.02em;
     color: var(--color-ink-faint);
   }
   .grid-table thead th:first-child,
@@ -200,13 +237,16 @@
     cursor: pointer;
   }
   .grid-table tbody tr.is-link:hover td {
-    background: rgba(30, 38, 56, 0.6);
+    background: #121212;
+  }
+  .grid-table tbody tr.is-link:hover td:first-child {
+    box-shadow: inset 2px 0 0 var(--color-line-float);
   }
   .grid-table tbody tr.is-selected td {
-    background: rgba(56, 189, 248, 0.08);
+    background: rgba(0, 255, 156, 0.06);
   }
   .grid-table tbody tr.is-selected td:first-child {
-    box-shadow: inset 3px 0 0 var(--color-cyan);
+    box-shadow: inset 3px 0 0 var(--color-accent);
   }
 
   .btn {
@@ -215,34 +255,38 @@
     gap: 0.5rem;
     height: 36px;
     padding: 0 0.875rem;
-    border-radius: 6px;
+    border: 1px solid transparent;
     font-size: 0.8125rem;
     font-weight: 600;
     white-space: nowrap;
     transition:
       background-color 120ms,
       border-color 120ms,
-      color 120ms;
+      color 120ms,
+      box-shadow 120ms;
   }
   .btn:disabled {
-    opacity: 0.5;
+    opacity: 0.45;
     cursor: not-allowed;
   }
   .btn-primary {
-    background: var(--color-cyan);
-    color: var(--color-canvas);
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: #000000;
   }
   .btn-primary:hover:not(:disabled) {
-    background: #7dd3fc;
+    background: #5cffbf;
+    box-shadow: 0 0 14px rgba(0, 255, 156, 0.45);
   }
   .btn-secondary {
-    background: var(--color-l2);
-    border: 1px solid var(--color-line-strong);
+    background: transparent;
+    border-color: var(--color-line-strong);
     color: var(--color-ink);
   }
   .btn-secondary:hover:not(:disabled) {
-    background: var(--color-l3);
-    border-color: var(--color-line-float);
+    background: var(--color-l2);
+    border-color: var(--color-accent);
+    color: var(--color-ink-strong);
   }
   .btn-ghost {
     height: 32px;
@@ -252,66 +296,68 @@
   }
   .btn-ghost:hover:not(:disabled) {
     background: var(--color-l2);
-    color: var(--color-ink);
+    color: var(--color-ink-strong);
   }
 
   .input {
     height: 36px;
     padding: 0 0.75rem;
-    background: var(--color-ground);
+    background: var(--color-canvas);
     border: 1px solid var(--color-line-strong);
-    border-radius: 6px;
     color: var(--color-ink-strong);
-    font-size: 0.875rem;
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    caret-color: var(--color-accent);
     outline: none;
   }
   .input::placeholder {
     color: var(--color-ink-ghost);
   }
   .input:focus {
-    border-color: var(--color-cyan);
-    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 1px var(--color-accent), 0 0 12px rgba(0, 255, 156, 0.2);
   }
 
-  /* Segmented control */
+  /* Segmented control: the pressed option gets a neon underline. */
   .seg {
     display: inline-flex;
-    gap: 2px;
-    padding: 3px;
-    background: var(--color-ground);
-    border: 1px solid var(--color-line);
-    border-radius: 8px;
+    gap: 0;
+    padding: 0;
+    background: var(--color-canvas);
+    border: 1px solid var(--color-line-strong);
   }
   .seg > button {
-    height: 30px;
-    padding: 0 0.75rem;
-    border-radius: 5px;
+    height: 32px;
+    padding: 0 0.875rem;
     font-size: 0.8125rem;
     font-weight: 500;
     color: var(--color-ink-muted);
   }
+  .seg > button + button {
+    border-left: 1px solid var(--color-line);
+  }
   .seg > button:hover {
-    color: var(--color-ink);
+    color: var(--color-ink-strong);
+    background: var(--color-l2);
   }
   .seg > button[aria-pressed='true'] {
     background: var(--color-l2);
     color: var(--color-ink-strong);
-    box-shadow: 0 0 0 1px var(--color-line-strong);
+    box-shadow: inset 0 -2px 0 var(--color-accent);
   }
 
   .link {
-    color: var(--color-cyan);
+    color: var(--color-accent);
   }
   .link:hover {
     text-decoration: underline;
-    text-underline-offset: 2px;
+    text-underline-offset: 3px;
   }
 
   .skeleton {
-    background: linear-gradient(90deg, #151b28 0%, #1e2638 50%, #151b28 100%);
+    background: linear-gradient(90deg, #0d0d0d 0%, #1a1a1a 50%, #0d0d0d 100%);
     background-size: 200% 100%;
     animation: skeleton 1.4s linear infinite;
-    border-radius: 4px;
   }
   @keyframes skeleton {
     from {
@@ -325,8 +371,18 @@
   .off-hours {
     background-image: repeating-linear-gradient(
       135deg,
-      rgba(148, 163, 184, 0.07) 0 4px,
+      rgba(255, 255, 255, 0.06) 0 4px,
       transparent 4px 8px
     );
+  }
+
+  /* Status pip: a square LED with a glow in its own colour. */
+  .pip {
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    flex-shrink: 0;
+    background: currentColor;
+    box-shadow: 0 0 6px currentColor;
   }
 }

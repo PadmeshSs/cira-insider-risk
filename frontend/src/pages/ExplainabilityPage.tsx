@@ -35,7 +35,7 @@ function FactorPersistence({ members, selected, onSelect }: { members: MemberExp
             <th />
             {days.map((m) => (
               <th key={m.member_id} className="px-0.5 pb-1">
-                <button onClick={() => onSelect(m.activity_date)} className={`t-code-sm ${m.activity_date === selected ? 'text-cyan' : 'text-ink-faint hover:text-ink'}`}>
+                <button onClick={() => onSelect(m.activity_date)} className={`t-code-sm ${m.activity_date === selected ? 'text-accent' : 'text-ink-faint hover:text-ink'}`}>
                   {m.activity_date.slice(5)}
                 </button>
               </th>
@@ -53,8 +53,8 @@ function FactorPersistence({ members, selected, onSelect }: { members: MemberExp
                 return (
                   <td key={m.member_id} className="p-0">
                     <span
-                      className={`block h-5 w-10 ${m.activity_date === selected ? 'outline outline-1 outline-cyan/60' : ''}`}
-                      style={{ background: f ? `rgba(56, 189, 248, ${a.toFixed(2)})` : '#1E2638' }}
+                      className={`block h-5 w-10 ${m.activity_date === selected ? 'outline outline-1 outline-accent/60' : ''}`}
+                      style={{ background: f ? `rgba(0, 255, 156, ${a.toFixed(2)})` : '#151515' }}
                       title={f ? `${m.activity_date}: ${f.text}` : `${m.activity_date}: not among the raising factors`}
                     />
                   </td>
@@ -129,7 +129,7 @@ export default function ExplainabilityPage() {
             </div>
 
             {e.status !== 'complete' && (
-              <div className="flex gap-2 rounded-[8px] border border-sev-medium/40 bg-sev-medium-tint px-5 py-2.5">
+              <div className="flex gap-2 border border-sev-medium/40 bg-sev-medium-tint px-5 py-2.5">
                 <Icon name="warn" size={14} className="mt-0.5 shrink-0 text-sev-medium" />
                 <p className="t-body-sm text-ink">
                   The model explanation for this day is not available: {e.model_unavailable_reason ?? 'not computed'}. The scores and their

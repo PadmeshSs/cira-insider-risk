@@ -47,13 +47,13 @@ const fmtTick = (t: number) => new Date(t).toISOString().slice(0, 10)
 function SevDot(props: { cx?: number; cy?: number; payload?: Pt }) {
   const { cx, cy, payload } = props
   if (cx === undefined || cy === undefined || !payload?.sev) return null
-  return <rect x={cx - 3} y={cy - 3} width={6} height={6} fill={SEV_STYLE[payload.sev].base} stroke="#0B0F17" strokeWidth={1} />
+  return <rect x={cx - 3} y={cy - 3} width={6} height={6} fill={SEV_STYLE[payload.sev].base} stroke="#000000" strokeWidth={1} />
 }
 
 function AlertMark(props: { cx?: number; cy?: number; payload?: Pt }) {
   const { cx, cy, payload } = props
   if (cx === undefined || cy === undefined || payload?.alertMark === null || payload?.alertMark === undefined) return null
-  return <path d={`M${cx - 4},${cy - 3} L${cx + 4},${cy - 3} L${cx},${cy + 3} Z`} fill="#F1F5F9" />
+  return <path d={`M${cx - 4},${cy - 3} L${cx + 4},${cy - 3} L${cx},${cy + 3} Z`} fill="#FFFFFF" />
 }
 
 function TipBody({ active, payload, which }: { active?: boolean; payload?: { payload: Pt }[]; which: 'cri' | 'an' }) {
@@ -94,9 +94,9 @@ export function CriHistoryChart({ buckets, bucket, height = 240, onPick }: { buc
           <CartesianGrid {...GRID} />
           <XAxis dataKey="t" type="number" scale="time" domain={domain} tickFormatter={fmtTick} {...AXIS} minTickGap={40} />
           <YAxis domain={[0, 108]} ticks={[0, ...BANDS.slice(1).map((b) => b.from), 100]} {...AXIS} width={44} />
-          <Tooltip content={<TipBody which="cri" />} cursor={{ stroke: '#3B475D' }} />
-          <Line dataKey="meanCri" stroke="#94A3B8" strokeDasharray="3 3" strokeWidth={1} dot={false} connectNulls={false} isAnimationActive={false} />
-          <Line dataKey="maxCri" stroke="#E2E8F0" strokeWidth={1.25} dot={<SevDot />} activeDot={false} connectNulls={false} isAnimationActive={false} />
+          <Tooltip content={<TipBody which="cri" />} cursor={{ stroke: '#4A4A4A' }} />
+          <Line dataKey="meanCri" stroke="#A3A3A3" strokeDasharray="3 3" strokeWidth={1} dot={false} connectNulls={false} isAnimationActive={false} />
+          <Line dataKey="maxCri" stroke="#E6E6E6" strokeWidth={1.25} dot={<SevDot />} activeDot={false} connectNulls={false} isAnimationActive={false} />
           <Scatter dataKey="alertMark" shape={<AlertMark />} isAnimationActive={false} />
         </ComposedChart>
       </ResponsiveContainer>
@@ -115,9 +115,9 @@ export function AnomalyHistoryChart({ buckets, bucket, height = 160 }: { buckets
           <CartesianGrid {...GRID} />
           <XAxis dataKey="t" type="number" scale="time" domain={domain} tickFormatter={fmtTick} {...AXIS} minTickGap={40} />
           <YAxis domain={[0, 1]} ticks={[0, 0.25, 0.5, 0.75, 1]} {...AXIS} width={44} />
-          <Tooltip content={<TipBody which="an" />} cursor={{ stroke: '#3B475D' }} />
-          <Line dataKey="meanAn" stroke="#38BDF8" strokeOpacity={0.5} strokeDasharray="3 3" strokeWidth={1} dot={false} connectNulls={false} isAnimationActive={false} />
-          <Line dataKey="maxAn" stroke="#38BDF8" strokeWidth={1.25} dot={{ r: 2, fill: '#38BDF8', strokeWidth: 0 }} activeDot={false} connectNulls={false} isAnimationActive={false} />
+          <Tooltip content={<TipBody which="an" />} cursor={{ stroke: '#4A4A4A' }} />
+          <Line dataKey="meanAn" stroke="#00FF9C" strokeOpacity={0.5} strokeDasharray="3 3" strokeWidth={1} dot={false} connectNulls={false} isAnimationActive={false} />
+          <Line dataKey="maxAn" stroke="#00FF9C" strokeWidth={1.25} dot={{ r: 2, fill: '#00FF9C', strokeWidth: 0 }} activeDot={false} connectNulls={false} isAnimationActive={false} />
         </ComposedChart>
       </ResponsiveContainer>
     </div>
@@ -131,13 +131,13 @@ export function HistoryLegend({ which }: { which: 'cri' | 'an' }) {
         <>
           <span className="flex items-center gap-1.5"><span className="h-px w-4 bg-ink" /> highest CRI in the bucket, square in its band colour</span>
           <span className="flex items-center gap-1.5"><span className="h-px w-4 border-t border-dashed border-ink-muted" /> mean CRI</span>
-          <span className="flex items-center gap-1.5"><svg width="9" height="7"><path d="M0,0 L8,0 L4,6 Z" fill="#F1F5F9" /></svg> bucket holds an alert member day</span>
+          <span className="flex items-center gap-1.5"><svg width="9" height="7"><path d="M0,0 L8,0 L4,6 Z" fill="#FFFFFF" /></svg> bucket holds an alert member day</span>
           <span>shaded bands: LOW / MEDIUM / HIGH / CRITICAL</span>
         </>
       ) : (
         <>
-          <span className="flex items-center gap-1.5"><span className="h-px w-4 bg-cyan" /> highest anomaly score</span>
-          <span className="flex items-center gap-1.5"><span className="h-px w-4 border-t border-dashed border-cyan/60" /> mean anomaly score</span>
+          <span className="flex items-center gap-1.5"><span className="h-px w-4 bg-accent" /> highest anomaly score</span>
+          <span className="flex items-center gap-1.5"><span className="h-px w-4 border-t border-dashed border-accent/60" /> mean anomaly score</span>
         </>
       )}
       <span>breaks: days not held in the database</span>

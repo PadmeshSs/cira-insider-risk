@@ -24,7 +24,7 @@ function Kpis({ o }: { o: Overview }) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <Stat label="Open alerts" value={fmtInt(open)} sub="Waiting in the review queue" />
-      <Stat label="Repeats kept" value={fmtInt(o.counts.suppressed ?? 0)} accent="#FCD34D" sub="Same pattern again within the cooldown. Kept, not resolved." />
+      <Stat label="Repeats kept" value={fmtInt(o.counts.suppressed ?? 0)} accent="#FFF27A" sub="Same pattern again within the cooldown. Kept, not resolved." />
       <div className="panel flex min-w-0 flex-col gap-3 p-5">
         <span className="text-[13px] font-medium text-ink-muted">Open alerts by severity</span>
         <SeverityMix counts={o.open_by_severity} />
@@ -86,14 +86,14 @@ function TopFactors({ o }: { o: Overview }) {
               <span className={`truncate text-[14px] ${f.feature === N52 ? 'text-sev-medium-text' : 'text-ink'}`} title={f.feature}>{sentenceLabel(f.feature)}</span>
               <span className="shrink-0 text-[13px] text-ink-muted">{f.open_alerts} alerts · {pct(f.open_alerts, open)}</span>
             </div>
-            <span className="h-2 rounded-full bg-l2">
-              <span className="block h-full rounded-full bg-prov-model" style={{ width: `${(100 * f.open_alerts) / max}%`, opacity: f.feature === N52 ? 0.5 : 0.85 }} />
+            <span className="h-2 bg-l2">
+              <span className="block h-full bg-prov-model" style={{ width: `${(100 * f.open_alerts) / max}%`, opacity: f.feature === N52 ? 0.5 : 0.85 }} />
             </span>
           </li>
         ))}
       </ul>
       {o.open_led_by_usb_disconnect_count > 0 && (
-        <div className="flex gap-3 rounded-lg border border-sev-medium/40 bg-sev-medium-tint p-4">
+        <div className="flex gap-3 border border-sev-medium/40 bg-sev-medium-tint p-4">
           <Icon name="warn" size={18} className="mt-0.5 shrink-0 text-sev-medium" />
           <p className="text-[13px] leading-5 text-ink">
             <strong className="font-semibold text-sev-medium-text">{o.open_led_by_usb_disconnect_count} open alerts</strong> are led by
@@ -127,7 +127,7 @@ export default function OverviewPage() {
         actions={<Link to="/alerts" className="btn btn-primary">Review the queue <Icon name="chevronRight" size={16} /></Link>}
       />
 
-      {o ? <Kpis o={o} /> : <SkeletonBlock height={136} className="rounded-[10px]" />}
+      {o ? <Kpis o={o} /> : <SkeletonBlock height={136} />}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
         <Panel className="xl:col-span-3" title="Riskiest users" meta="Ranked by their highest open alert">

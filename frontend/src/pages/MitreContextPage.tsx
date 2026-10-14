@@ -34,7 +34,7 @@ function TechniqueGrid({ days, techniques, selected, onDay, onTechnique }: {
             <th />
             {days.map((d) => (
               <th key={d.activity_date} className="px-0.5 pb-1 align-bottom">
-                <button onClick={() => onDay(d.activity_date)} className={`flex flex-col items-center ${d.activity_date === selected ? 'text-cyan' : 'text-ink-faint hover:text-ink'}`}>
+                <button onClick={() => onDay(d.activity_date)} className={`flex flex-col items-center ${d.activity_date === selected ? 'text-accent' : 'text-ink-faint hover:text-ink'}`}>
                   <span className="t-code-sm">{d.activity_date.slice(5)}</span>
                   <span className="text-[10px]">{weekday(d.activity_date)}</span>
                 </button>
@@ -57,8 +57,8 @@ function TechniqueGrid({ days, techniques, selected, onDay, onTechnique }: {
                 return (
                   <td key={d.activity_date} className="p-0">
                     <span
-                      className={`flex h-6 w-11 items-center justify-center ${d.activity_date === selected ? 'outline outline-1 outline-cyan/60' : ''}`}
-                      style={{ background: m ? (m.evidence === 'indicated' ? 'rgba(232,121,249,0.12)' : 'rgba(232,121,249,0.35)') : '#1E2638' }}
+                      className={`flex h-6 w-11 items-center justify-center ${d.activity_date === selected ? 'outline outline-1 outline-accent/60' : ''}`}
+                      style={{ background: m ? (m.evidence === 'indicated' ? 'rgba(255,43,214,0.14)' : 'rgba(255,43,214,0.42)') : '#151515' }}
                       title={m ? `${d.activity_date}: rule ${m.rule_id}, ${m.evidence}, ${m.trigger_column} = ${m.trigger_value}` : `${d.activity_date}: ${STATUS_TEXT[d.status] ?? d.status}`}
                     >
                       {m && <span className={`h-2 w-2 ${m.evidence === 'indicated' ? 'border border-prov-attack' : 'bg-prov-attack'}`} />}
@@ -107,7 +107,7 @@ export default function MitreContextPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start gap-2 rounded-[8px] border border-prov-attack/30 bg-prov-attack/[0.06] px-5 py-2.5">
+      <div className="flex items-start gap-2 border border-prov-attack/30 bg-prov-attack/[0.06] px-5 py-2.5">
         <Icon name="info" size={14} className="mt-0.5 shrink-0 text-prov-attack" />
         <p className="t-body-sm text-ink">{d.note}</p>
       </div>

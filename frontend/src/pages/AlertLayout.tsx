@@ -39,7 +39,7 @@ export default function AlertLayout() {
       {st.error ? (
         <div className="panel"><ErrorPanel error={st.error} onRetry={st.reload} /></div>
       ) : !d ? (
-        <SkeletonBlock height={140} className="rounded-[8px]" />
+        <SkeletonBlock height={140} />
       ) : (
         <>
           <header className="panel flex flex-col">
@@ -49,7 +49,7 @@ export default function AlertLayout() {
                   <h1 className="t-headline-xl font-mono text-ink-strong">#{d.alert.id}</h1>
                   <SeverityBadge severity={d.alert.max_severity} value={d.alert.max_cri_score} />
                   {d.alert.status === 'open' ? (
-                    <Tag tone="cyan">open</Tag>
+                    <Tag tone="accent">open</Tag>
                   ) : (
                     <Tag tone="warn" title="A kept repeat of an open alert inside its cooldown. Not resolved, not benign (N57).">suppressed</Tag>
                   )}
@@ -85,7 +85,7 @@ export default function AlertLayout() {
                   end
                   to={`/alerts/${alertId}${t.to ? `/${t.to}` : ''}${keep}`}
                   className={({ isActive }) =>
-                    `flex h-14 flex-col justify-center border-b-2 px-3 ${isActive ? 'border-cyan text-ink-strong' : 'border-transparent text-ink-muted hover:text-ink'}`
+                    `flex h-14 flex-col justify-center border-b-2 px-3 ${isActive ? 'border-accent text-ink-strong' : 'border-transparent text-ink-muted hover:text-ink'}`
                   }
                 >
                   <span className="text-[14px] font-semibold leading-tight">{t.label}</span>

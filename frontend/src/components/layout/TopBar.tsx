@@ -20,12 +20,12 @@ export function TopBar() {
     : notReady.length
       ? { tone: 'warn', text: `${notReady.length} service${notReady.length === 1 ? '' : 's'} not ready`, detail: notReady[0][1].reason ?? undefined }
       : { tone: 'ok', text: 'All services ready', detail: health.anomaly_model.served ? `Model ${health.anomaly_model.served.model_name} ${health.anomaly_model.served.registry_version}` : undefined }
-  const dot = state.tone === 'ok' ? 'bg-sev-low' : state.tone === 'warn' ? 'bg-sev-medium' : 'bg-sev-critical'
+  const dot = state.tone === 'ok' ? 'text-state-ok' : state.tone === 'warn' ? 'text-state-warn' : 'text-state-down'
 
   return (
     <header className="flex h-16 shrink-0 items-center gap-6 border-b border-line bg-canvas/95 px-8 backdrop-blur">
-      <Link to="/system" className="flex min-w-0 items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-l1" title={state.detail}>
-        <span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} aria-hidden="true" />
+      <Link to="/system" className="flex min-w-0 items-center gap-3 px-2 py-1.5 hover:bg-l1" title={state.detail}>
+        <span className={`pip ${dot}`} aria-hidden="true" />
         <span className="text-[14px] font-medium text-ink">{state.text}</span>
         {state.detail && <span className="hidden truncate text-[13px] text-ink-faint lg:inline">{state.detail}</span>}
       </Link>
@@ -49,7 +49,7 @@ export function TopBar() {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          className="input w-72 !pl-9"
+          className="input w-80 !pl-9"
           placeholder="Find a user by ID, e.g. ACM2278"
           aria-label="Find a user by ID"
         />

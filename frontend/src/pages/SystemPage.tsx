@@ -51,7 +51,7 @@ export default function SystemPage() {
             <ul>
               {(Object.entries(health.routes) as [string, RouteReadiness][]).map(([k, r]) => (
                 <li key={k} className="flex items-start gap-2.5 border-b border-row-line px-5 py-2 last:border-0">
-                  <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${r.ready ? 'bg-sev-low' : 'bg-sev-critical'}`} />
+                  <span className={`pip mt-1.5 h-1.5 w-1.5 ${r.ready ? 'text-state-ok' : 'text-state-down'}`} />
                   <div className="min-w-0">
                     <div className="t-code text-ink">{k}</div>
                     {r.alert_run_id && <div className="t-code-sm text-ink-faint">serving {r.alert_run_id}</div>}
@@ -62,11 +62,11 @@ export default function SystemPage() {
             </ul>
           </Panel>
           <Panel className="xl:col-span-7" title="Components">
-            <div className="grid grid-cols-1 gap-px bg-line md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-px bg-line md:grid-cols-2 md:[&>*:last-child:nth-child(odd)]:col-span-2">
               {blocks.map(([name, b]) => (
                 <div key={name} className="flex flex-col gap-2 bg-l1 p-5">
                   <div className="flex items-center gap-2">
-                    <span className={`h-1.5 w-1.5 rounded-full ${OK.has(String(b?.status)) ? 'bg-sev-low' : 'bg-sev-critical'}`} />
+                    <span className={`pip h-1.5 w-1.5 ${OK.has(String(b?.status)) ? 'text-state-ok' : 'text-state-down'}`} />
                     <span className="text-[13px] font-semibold text-ink">{name}</span>
                     <span className="t-code-sm ml-auto text-ink-muted">{b?.status}</span>
                   </div>
@@ -81,9 +81,9 @@ export default function SystemPage() {
       <Panel title="Models" meta="served, shadow, and versions behind stored scores">
         {m.error ? <ErrorPanel error={m.error} onRetry={m.reload} /> : !m.data ? <SkeletonRows rows={5} /> : (
           <div className="flex flex-col">
-            <div className="grid grid-cols-1 gap-px bg-line md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-px bg-line md:grid-cols-2 md:[&>*:last-child:nth-child(odd)]:col-span-2">
               <div className="flex flex-col gap-2 bg-l1 p-5">
-                <div className="flex items-center gap-2"><Tag tone="cyan">served</Tag><span className="t-code text-ink-strong">{m.data.served?.model_name} {m.data.served?.registry_version}</span></div>
+                <div className="flex items-center gap-2"><Tag tone="accent">served</Tag><span className="t-code text-ink-strong">{m.data.served?.model_name} {m.data.served?.registry_version}</span></div>
                 {m.data.served && <Kv obj={m.data.served as Record<string, unknown>} />}
                 {m.data.decision_rule && <p className="t-body-sm text-ink-muted"><span className="text-ink-faint">Decision rule: </span>{m.data.decision_rule}</p>}
                 {m.data.score_convention && <p className="t-body-sm text-ink-muted">{m.data.score_convention}</p>}

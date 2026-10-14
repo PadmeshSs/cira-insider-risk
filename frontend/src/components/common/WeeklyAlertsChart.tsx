@@ -21,7 +21,7 @@ export function WeeklyAlertsChart({ weeks }: { weeks: Overview['new_open_alerts'
             formatter={(v) => [String(v), 'new open alerts']}
             labelFormatter={(d) => `week of ${String(d)}`}
           />
-          <Bar dataKey="count" fill="#38BDF8" fillOpacity={0.75} maxBarSize={18} isAnimationActive={false} />
+          <Bar dataKey="count" fill="#00FF9C" fillOpacity={0.8} maxBarSize={18} isAnimationActive={false} />
         </BarChart>
       </ResponsiveContainer>
     </div>

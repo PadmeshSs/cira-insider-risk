@@ -21,13 +21,13 @@ export function DayTabs({ members, selected, onSelect, mark }: {
             role="tab"
             aria-selected={sel}
             onClick={() => onSelect(m.activity_date)}
-            className={`flex shrink-0 flex-col items-start gap-0.5 rounded-sm border px-2 py-1 ${sel ? 'border-cyan bg-cyan/[0.08]' : 'border-line hover:bg-l2'}`}
+            className={`flex shrink-0 flex-col items-start gap-0.5 border px-2 py-1 ${sel ? 'border-accent bg-accent/[0.08]' : 'border-line hover:bg-l2'}`}
           >
             <span className="flex items-center gap-1.5">
               <span className="h-1.5 w-1.5" style={{ background: SEV_STYLE[m.severity].base }} />
               <span className={`t-code-sm ${sel ? 'text-ink-strong' : 'text-ink-muted'}`}>{m.activity_date.slice(5)}</span>
               <span className="text-[10px] text-ink-faint">{weekday(m.activity_date)}</span>
-              {m.is_peak && <span className="font-mono text-[10px] text-cyan">peak</span>}
+              {m.is_peak && <span className="font-mono text-[10px] text-accent">peak</span>}
             </span>
             {note && <span className="text-[10px] text-ink-faint">{note}</span>}
           </button>

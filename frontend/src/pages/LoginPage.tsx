@@ -43,7 +43,7 @@ function Readiness() {
     <ul className="flex flex-col">
       {routes.map(([k, r]) => (
         <li key={k} className="flex items-start gap-2.5 border-b border-row-line py-2 last:border-0">
-          <span className={`mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full ${r.ready ? 'bg-sev-low' : 'bg-sev-critical'}`} />
+          <span className={`pip mt-1.5 h-1.5 w-1.5 ${r.ready ? 'text-state-ok' : 'text-state-down'}`} />
           <div className="min-w-0">
             <div className="t-body-sm text-ink">{ROUTE_LABEL[k] ?? k}</div>
             {r.ready && r.alert_run_id && <div className="t-code-sm text-ink-faint">serving {r.alert_run_id}</div>}
@@ -90,12 +90,12 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-full items-center justify-center bg-canvas p-6">
-      <div className="grid w-full max-w-[880px] grid-cols-1 overflow-hidden rounded-[8px] border border-line md:grid-cols-[1fr_340px]">
+      <div className="grid w-full max-w-[880px] grid-cols-1 overflow-hidden border border-line md:grid-cols-[1fr_340px]">
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5 bg-l1 p-8" noValidate>
           <div className="flex items-center gap-3">
             <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true">
-              <path d="M8 22h4v-6H8zM14 22h4V10h-4zM20 22h4v-9h-4z" fill="#38BDF8" />
-              <path d="M7 25h18" stroke="#EF4444" strokeWidth="2" />
+              <path d="M8 22h4v-6H8zM14 22h4V10h-4zM20 22h4v-9h-4z" fill="#00FF9C" />
+              <path d="M7 25h18" stroke="#FF2E5B" strokeWidth="2" />
             </svg>
             <div>
               <h1 className="t-headline-lg text-ink-strong">CIRA analyst console</h1>
@@ -104,7 +104,7 @@ export default function LoginPage() {
           </div>
 
           {endReason && !serverError && (
-            <p className="t-body-sm rounded-sm border border-line-strong bg-l2 px-3 py-2 text-ink">{endReason}</p>
+            <p className="t-body-sm border border-line-strong bg-l2 px-3 py-2 text-ink">{endReason}</p>
           )}
 
           <label className="flex flex-col gap-1.5">
@@ -119,7 +119,7 @@ export default function LoginPage() {
           </label>
 
           {serverError && (
-            <p role="alert" className="t-body-sm flex items-start gap-2 rounded-sm border border-sev-critical/60 bg-sev-critical-tint px-3 py-2 text-sev-critical-text">
+            <p role="alert" className="t-body-sm flex items-start gap-2 border border-sev-critical/60 bg-sev-critical-tint px-3 py-2 text-sev-critical-text">
               <Icon name="warn" size={14} className="mt-0.5 shrink-0" /> {serverError}
             </p>
           )}

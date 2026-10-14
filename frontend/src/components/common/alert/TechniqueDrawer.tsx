@@ -31,14 +31,14 @@ export function TechniqueDrawer({ id, onClose }: { id: string | null; onClose: (
                   attack.mitre.org <Icon name="external" size={12} />
                 </a>
               </div>
-              <div className="rounded-sm border border-line bg-ground p-2.5">
+              <div className=" border border-line bg-ground p-2.5">
                 <p className="t-body-sm text-ink-muted">{t.data.note}</p>
               </div>
               <div className="flex flex-col gap-2">
                 <span className="t-label">CIRA rules that map to it</span>
                 {t.data.rules.length === 0 && <p className="t-body-sm text-ink-muted">No CIRA rule maps a user-day to this technique.</p>}
                 {t.data.rules.map((r) => (
-                  <div key={r.rule_id} className="flex flex-col gap-1.5 rounded-sm border border-line p-5">
+                  <div key={r.rule_id} className="flex flex-col gap-1.5 border border-line p-5">
                     <div className="flex items-center gap-2">
                       <span className="t-code text-ink-strong">{r.rule_id}</span>
                       <Tag tone={r.evidence === 'indicated' ? 'warn' : 'attack'}>{r.evidence}</Tag>

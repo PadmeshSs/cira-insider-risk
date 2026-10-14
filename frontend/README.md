@@ -81,5 +81,6 @@ src/
   hooks/ utils/ constants/ theme/
 ```
 
-Design tokens are in `src/index.css` (`@theme`), taken from `DESIGN.md` ("Tactical Threat Surface").
+Design tokens are in `src/index.css` (`@theme`): the "black ice" look, pure black surfaces, square corners, neon for
+state (severity, service status, selection, provenance), Chakra Petch for UI text and JetBrains Mono for data.
 MUI renders inside a CSS layer below Tailwind's utilities, so utility classes always win.

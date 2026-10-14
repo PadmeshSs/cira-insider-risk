@@ -9,7 +9,7 @@ import type { Coverage } from '@/types/api'
 export function CoverageNote({ coverage, note }: { coverage?: Coverage | null; note?: string }) {
   const text = note ?? coverage?.note
   return (
-    <div className="flex items-start gap-2 rounded-sm border border-line bg-ground px-2.5 py-2">
+    <div className="flex items-start gap-2 border border-line bg-ground px-2.5 py-2">
       <Icon name="info" size={14} className="mt-0.5 shrink-0 text-ink-faint" />
       <p className="t-body-sm text-ink-muted">
         {coverage && (

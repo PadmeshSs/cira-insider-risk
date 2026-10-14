@@ -65,7 +65,7 @@ export function DayTimeline({ events, onPick, picked }: { events: CertEvent[]; o
                         background: sec ? 'transparent' : meta.color,
                         border: sec ? `1px solid ${meta.color}` : undefined,
                         opacity: s === 'http' ? 0.55 : 1,
-                        outline: sel ? '1px solid #F1F5F9' : undefined,
+                        outline: sel ? '1px solid #00FF9C' : undefined,
                         outlineOffset: 1,
                       }}
                     />

@@ -10,7 +10,7 @@ export function TriggerTags({ triggers }: { triggers: string[] }) {
   return (
     <span className="inline-flex gap-1">
       {triggers.map((t) => (
-        <Tag key={t} tone={t === 'band' ? 'indigo' : 'cyan'} title={TITLES[t] ?? t}>
+        <Tag key={t} tone={t === 'band' ? 'violet' : 'accent'} title={TITLES[t] ?? t}>
           {t === 'top_k' ? 'top-k' : t}
         </Tag>
       ))}

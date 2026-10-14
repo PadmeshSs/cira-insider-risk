@@ -78,7 +78,7 @@ export default function UserInvestigationPage() {
         <span className="t-code-sm uppercase text-ink-muted">{userId}</span>
       </div>
 
-      {!s ? <SkeletonBlock height={96} className="rounded-[8px]" /> : (
+      {!s ? <SkeletonBlock height={96} /> : (
         <header className="panel flex flex-wrap items-center gap-x-8 gap-y-3 p-6">
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2.5">

@@ -49,10 +49,10 @@ export function ModelFactors({ raising, lowering }: { raising: ModelFactor[]; lo
           <span className="absolute inset-y-0 left-1/2 w-px bg-line-float" />
           <span
             className="absolute inset-y-0.5"
-            style={up ? { left: '50%', width: `${w}%`, background: '#38BDF8' } : { right: '50%', width: `${w}%`, background: '#64748B' }}
+            style={up ? { left: '50%', width: `${w}%`, background: '#00FF9C' } : { right: '50%', width: `${w}%`, background: '#525252' }}
           />
         </span>
-        <span className={`t-code text-right ${up ? 'text-cyan' : 'text-ink-muted'}`}>{fmtSigned(f.contribution)}</span>
+        <span className={`t-code text-right ${up ? 'text-accent' : 'text-ink-muted'}`}>{fmtSigned(f.contribution)}</span>
       </li>
     )
   }
@@ -86,16 +86,16 @@ export function ContextFactors({ items }: { items: ContextFactor[] }) {
         return (
           <li key={c.component} className="grid grid-cols-[minmax(0,1fr)_120px_60px] items-center gap-3 border-b border-row-line px-5 py-2 last:border-0">
             <span className="flex min-w-0 items-start gap-2">
-              <span className="mt-1 h-2 w-2 shrink-0" style={{ background: meta?.color ?? '#818CF8' }} />
+              <span className="mt-1 h-2 w-2 shrink-0" style={{ background: meta?.color ?? '#B266FF' }} />
               <span className="flex min-w-0 flex-col leading-tight">
                 <span className="text-[13px] text-ink">{c.text}</span>
                 {c.source.detail_column && <span className="t-code-sm text-ink-faint">{c.source.detail_column}</span>}
               </span>
             </span>
             <span className="relative h-1.5 bg-l2" title="Points on the 0-100 CRI scale">
-              <span className="absolute inset-y-0 left-0" style={{ width: `${Math.min(100, c.points)}%`, background: meta?.color ?? '#818CF8' }} />
+              <span className="absolute inset-y-0 left-0" style={{ width: `${Math.min(100, c.points)}%`, background: meta?.color ?? '#B266FF' }} />
             </span>
-            <span className="t-code text-right text-indigo">{fmtCri(c.points)}</span>
+            <span className="t-code text-right text-violet">{fmtCri(c.points)}</span>
           </li>
         )
       })}

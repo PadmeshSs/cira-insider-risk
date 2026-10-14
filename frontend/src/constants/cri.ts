@@ -16,16 +16,16 @@ export const CRI_COMPONENTS = [
 export type CriComponent = (typeof CRI_COMPONENTS)[number]
 
 export const COMPONENT_META: Record<string, { label: string; short: string; color: string; side: 'model' | 'context' | 'attack' }> = {
-  anomaly: { label: 'Anomaly score rarity', short: 'Anomaly', color: '#38BDF8', side: 'model' },
-  historical_deviation: { label: "Deviation from the user's own last 30 days", short: 'Own history', color: '#818CF8', side: 'context' },
-  peer_deviation: { label: 'Deviation from department peers', short: 'Peers', color: '#A5B4FC', side: 'context' },
-  user_context: { label: 'User context (privileged role list)', short: 'Role', color: '#C7D2FE', side: 'context' },
-  asset_criticality: { label: 'Asset criticality', short: 'Asset', color: '#64748B', side: 'context' },
-  mitre_context: { label: 'ATT&CK context', short: 'ATT&CK', color: '#E879F9', side: 'attack' },
+  anomaly: { label: 'Anomaly score rarity', short: 'Anomaly', color: '#00FF9C', side: 'model' },
+  historical_deviation: { label: "Deviation from the user's own last 30 days", short: 'Own history', color: '#B266FF', side: 'context' },
+  peer_deviation: { label: 'Deviation from department peers', short: 'Peers', color: '#CC99FF', side: 'context' },
+  user_context: { label: 'User context (privileged role list)', short: 'Role', color: '#E2CCFF', side: 'context' },
+  asset_criticality: { label: 'Asset criticality', short: 'Asset', color: '#737373', side: 'context' },
+  mitre_context: { label: 'ATT&CK context', short: 'ATT&CK', color: '#FF2BD6', side: 'attack' },
 }
 
 export const PROVENANCE = {
-  model: { color: '#38BDF8', name: 'Served model' },
-  context: { color: '#818CF8', name: 'CRI context' },
-  attack: { color: '#E879F9', name: 'ATT&CK' },
+  model: { color: '#00FF9C', name: 'Served model' },
+  context: { color: '#B266FF', name: 'CRI context' },
+  attack: { color: '#FF2BD6', name: 'ATT&CK' },
 } as const

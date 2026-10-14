@@ -63,8 +63,8 @@ export function AlertTable({ items, rankOffset = 0, compact = false, showUser = 
               <td>
                 <div className="flex items-center gap-3" title={`${a.ordering} ${fmtAnomaly(a.queue_score, 6)}`}>
                   <span className="t-code w-12 text-[14px] text-ink-strong">{a.queue_score.toFixed(3)}</span>
-                  <span className="relative h-1.5 w-16 rounded-full bg-l2">
-                    <span className="absolute inset-y-0 left-0 rounded-full bg-prov-model" style={{ width: `${a.queue_score * 100}%` }} />
+                  <span className="relative h-1.5 w-16 bg-l2">
+                    <span className="absolute inset-y-0 left-0 bg-prov-model" style={{ width: `${a.queue_score * 100}%` }} />
                   </span>
                 </div>
               </td>

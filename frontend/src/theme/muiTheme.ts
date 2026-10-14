@@ -1,33 +1,39 @@
 import { createTheme } from '@mui/material/styles'
 
 /**
- * MUI follows DESIGN.md: permanent dark mode, Level 3 flyouts with a 1px
- * border and the tactical shadow, 4px radius on sub-components.
+ * MUI in the "black ice" look: permanent dark mode, pure black surfaces,
+ * square corners, neon accent. Values mirror the tokens in index.css.
  */
+const SANS = "'Chakra Petch', 'Bahnschrift', ui-sans-serif, system-ui, sans-serif"
+
 export const muiTheme = createTheme({
   palette: {
     mode: 'dark',
-    primary: { main: '#38BDF8', contrastText: '#0B0F17' },
-    secondary: { main: '#818CF8' },
-    error: { main: '#EF4444' },
-    warning: { main: '#F59E0B' },
-    background: { default: '#0B0F17', paper: '#151B28' },
-    text: { primary: '#E2E8F0', secondary: '#94A3B8' },
-    divider: '#222B38',
+    primary: { main: '#00FF9C', contrastText: '#000000' },
+    secondary: { main: '#B266FF' },
+    error: { main: '#FF2E5B' },
+    warning: { main: '#FFE600' },
+    info: { main: '#00E5FF' },
+    success: { main: '#00FF9C' },
+    background: { default: '#000000', paper: '#0A0A0A' },
+    text: { primary: '#E6E6E6', secondary: '#A3A3A3' },
+    divider: '#242424',
   },
-  shape: { borderRadius: 4 },
+  shape: { borderRadius: 0 },
   typography: {
-    fontFamily: "'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif",
+    fontFamily: SANS,
     fontSize: 13,
   },
   components: {
     MuiTooltip: {
       styleOverrides: {
         tooltip: {
-          background: '#252E42',
-          border: '1px solid #3B475D',
-          boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.6)',
-          color: '#E2E8F0',
+          background: '#0A0A0A',
+          border: '1px solid #4A4A4A',
+          borderRadius: 0,
+          boxShadow: '0px 6px 18px rgba(0, 0, 0, 0.8)',
+          color: '#E6E6E6',
+          fontFamily: SANS,
           fontSize: 12,
           lineHeight: '17px',
           padding: '6px 8px',
@@ -37,10 +43,10 @@ export const muiTheme = createTheme({
     },
     MuiDrawer: {
       styleOverrides: {
-        paper: { background: '#151B28', borderLeft: '1px solid #3B475D', backgroundImage: 'none' },
+        paper: { background: '#0A0A0A', borderLeft: '1px solid #00FF9C', backgroundImage: 'none', borderRadius: 0 },
       },
     },
-    MuiBackdrop: { styleOverrides: { root: { backgroundColor: 'rgba(5, 8, 13, 0.6)' } } },
-    MuiPaper: { styleOverrides: { root: { backgroundImage: 'none' } } },
+    MuiBackdrop: { styleOverrides: { root: { backgroundColor: 'rgba(0, 0, 0, 0.75)' } } },
+    MuiPaper: { styleOverrides: { root: { backgroundImage: 'none', borderRadius: 0 } } },
   },
 })

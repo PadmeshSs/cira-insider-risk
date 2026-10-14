@@ -11,8 +11,8 @@ export function SeverityBadge({ severity, value, title }: { severity: Severity |
   return (
     <span
       title={title ?? (value !== undefined && value !== null ? `CRI ${value.toFixed(1)} of 100: ${severity}` : `CRI band ${severity}`)}
-      className="inline-flex h-6 items-center rounded-md border px-2 font-mono text-[12px] font-semibold uppercase leading-none tracking-wide"
-      style={{ background: s.bg15, borderColor: s.base, color: s.text }}
+      className="inline-flex h-6 items-center border px-2 font-mono text-[12px] font-semibold uppercase leading-none tracking-wide"
+      style={{ background: s.bg15, borderColor: s.base, color: s.text, boxShadow: `0 0 8px ${s.glow}, inset 0 0 6px ${s.bg15}` }}
     >
       {severity}
       {value !== undefined && value !== null && <span className="ml-1.5 opacity-80">{Math.round(value)}</span>}

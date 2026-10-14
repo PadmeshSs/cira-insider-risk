@@ -37,16 +37,16 @@ export function MemberDaysStrip({ members, selected, onSelect }: {
                 role="option"
                 aria-selected={sel}
                 onClick={() => onSelect(m.activity_date)}
-                className={`flex w-[92px] shrink-0 flex-col items-center gap-2 rounded-lg border px-2 pb-2.5 pt-3 transition-colors ${
-                  sel ? 'border-cyan bg-cyan/[0.08]' : 'border-transparent hover:border-line-strong hover:bg-l2'
+                className={`flex w-[92px] shrink-0 flex-col items-center gap-2 border px-2 pb-2.5 pt-3 transition-colors ${
+                  sel ? 'border-accent bg-accent/[0.08]' : 'border-transparent hover:border-line-strong hover:bg-l2'
                 }`}
                 title={`${m.activity_date}: anomaly ${fmtAnomaly(m.anomaly_score)}, CRI ${fmtCri(m.cri_score)} ${m.severity}`}
               >
                 <div className="flex items-end gap-1.5" style={{ height: H }}>
-                  <span className="relative w-3.5 rounded-sm bg-l2" style={{ height: H }} aria-hidden="true">
+                  <span className="relative w-3.5 bg-l2" style={{ height: H }} aria-hidden="true">
                     <span className="absolute inset-x-0 bottom-0 bg-prov-model" style={{ height: Math.max(1, m.anomaly_score * H) }} />
                   </span>
-                  <span className="relative w-3.5 rounded-sm bg-l2" style={{ height: H }} aria-hidden="true">
+                  <span className="relative w-3.5 bg-l2" style={{ height: H }} aria-hidden="true">
                     <span className="absolute inset-x-0 bottom-0" style={{ height: Math.max(1, (m.cri_score / 100) * H), background: sev.base }} />
                     {ticks.map((b) => (
                       <span key={b} className="absolute inset-x-0 h-px bg-canvas/70" style={{ bottom: (b / 100) * H }} />
@@ -56,7 +56,7 @@ export function MemberDaysStrip({ members, selected, onSelect }: {
                 <span className={`text-[13px] font-medium ${sel ? 'text-ink-strong' : 'text-ink-muted'}`}>{fmtDay(m.activity_date, false)}</span>
                 <span className="flex h-4 items-center gap-1">
                   <span className="text-[12px] text-ink-faint">{weekday(m.activity_date)}</span>
-                  {m.is_peak && <span className="text-[12px] font-medium text-cyan">peak</span>}
+                  {m.is_peak && <span className="text-[12px] font-medium text-accent">peak</span>}
                 </span>
                 <span className="flex gap-0.5">
                   <span className={`h-1 w-3 ${m.by_top_k ? 'bg-prov-model' : 'bg-l2'}`} title={m.by_top_k ? 'admitted by the daily top-k' : 'not in the daily top-k'} />

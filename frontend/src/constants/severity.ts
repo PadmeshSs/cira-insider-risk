@@ -27,9 +27,10 @@ export function bandsFrom(maxima: Partial<Record<Severity, number>>): Band[] {
   })
 }
 
-export const SEV_STYLE: Record<Severity, { base: string; tint: string; text: string; bg15: string }> = {
-  LOW: { base: '#14B8A6', tint: '#0F2E2C', text: '#5EEAD4', bg15: 'rgba(20, 184, 166, 0.15)' },
-  MEDIUM: { base: '#F59E0B', tint: '#332408', text: '#FCD34D', bg15: 'rgba(245, 158, 11, 0.15)' },
-  HIGH: { base: '#F97316', tint: '#3A1A0B', text: '#FDBA74', bg15: 'rgba(249, 115, 22, 0.15)' },
-  CRITICAL: { base: '#EF4444', tint: '#3F1414', text: '#FCA5A5', bg15: 'rgba(239, 68, 68, 0.15)' },
+/** Neon per band, kept in step with the --color-sev-* tokens in index.css. `glow` is the halo around a badge. */
+export const SEV_STYLE: Record<Severity, { base: string; tint: string; text: string; bg15: string; glow: string }> = {
+  LOW: { base: '#00E5FF', tint: '#001F24', text: '#7AF3FF', bg15: 'rgba(0, 229, 255, 0.10)', glow: 'rgba(0, 229, 255, 0.35)' },
+  MEDIUM: { base: '#FFE600', tint: '#1F1C00', text: '#FFF27A', bg15: 'rgba(255, 230, 0, 0.10)', glow: 'rgba(255, 230, 0, 0.35)' },
+  HIGH: { base: '#FF8A00', tint: '#241300', text: '#FFB766', bg15: 'rgba(255, 138, 0, 0.12)', glow: 'rgba(255, 138, 0, 0.40)' },
+  CRITICAL: { base: '#FF2E5B', tint: '#26040C', text: '#FF8AA3', bg15: 'rgba(255, 46, 91, 0.14)', glow: 'rgba(255, 46, 91, 0.50)' },
 }
